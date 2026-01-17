@@ -1,0 +1,49 @@
+# Dependencies
+node_modules/
+vendor/
+
+# Development files
+.env
+.env.*
+!.env.example
+.phpunit.result.cache
+.phpunit.cache
+
+# IDE files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Git
+.git/
+.gitignore
+
+# Storage and logs (will be handled by Vercel)
+storage/logs/
+storage/framework/cache/
+storage/framework/sessions/
+storage/framework/views/
+
+# Tests
+tests/
+phpunit.xml
+
+# Documentation
+*.md
+!README.md
+
+# Build artifacts (will be regenerated during build)
+public/build/
+
+# Temporary files
+*.tmp
+*.log
+
+# Database
+database/database.sqlite

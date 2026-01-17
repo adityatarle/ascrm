@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <title>{{ $title }}</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            font-size: 11pt;
+            margin: 0;
+            padding: 20px;
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 30px;
+            border-bottom: 2px solid #000;
+            padding-bottom: 15px;
+        }
+        .header h1 {
+            margin: 0 0 10px 0;
+            font-size: 18pt;
+            font-weight: bold;
+        }
+        .header p {
+            margin: 5px 0;
+            font-size: 10pt;
+        }
+        .org-info {
+            margin-bottom: 20px;
+        }
+        .org-info .left {
+            float: left;
+            width: 50%;
+        }
+        .org-info .right {
+            float: right;
+            width: 50%;
+            text-align: right;
+        }
+        .org-info::after {
+            content: "";
+            display: table;
+            clear: both;
+        }
+        .report-title {
+            text-align: center;
+            margin: 20px 0;
+            font-size: 14pt;
+            font-weight: bold;
+        }
+        .period-info {
+            text-align: center;
+            margin-bottom: 20px;
+            font-size: 10pt;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        table th {
+            background-color: #267b3f;
+            color: white;
+            padding: 8px;
+            text-align: left;
+            border: 1px solid #000;
+            font-weight: bold;
+        }
+        table td {
+            padding: 6px;
+            border: 1px solid #ddd;
+        }
+        table tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+        .text-right {
+            text-align: right;
+        }
+        .text-center {
+            text-align: center;
+        }
+        .summary {
+            margin-top: 30px;
+            padding: 15px;
+            background-color: #f5f5f5;
+            border: 1px solid #ddd;
+        }
+        .summary h3 {
+            margin-top: 0;
+            font-size: 12pt;
+        }
+        .summary-row {
+            display: flex;
+            justify-content: space-between;
+            margin: 8px 0;
+        }
+        .footer {
+            margin-top: 40px;
+            text-align: center;
+            font-size: 9pt;
+            color: #666;
+            border-top: 1px solid #ddd;
+            padding-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <div class="header">
+        <h1>{{ $organization->name ?? 'Organization' }}</h1>
+        @if($organization->gstin)
+        <p><strong>GSTIN:</strong> {{ $organization->gstin }}</p>
+        @endif
+    </div>
+
+    <!-- Organization Info -->
+    <div class="org-info">
+        <div class="left">
+            @if($organization->address)
+            <p><strong>Address:</strong></p>
+            <p>{{ $organization->address }}</p>
+            @endif
+            @if($organization->city)
+            <p>{{ $organization->city->name ?? '' }}{{ $organization->state ? ', ' . $organization->state->name : '' }}</p>
+            @endif
+            @if($organization->pincode)
+            <p>Pincode: {{ $organization->pincode }}</p>
+            @endif
+        </div>
+        <div class="right">
+            @if($organization->phone)
+            <p><strong>Phone:</strong> {{ $organization->phone }}</p>
+            @endif
+            @if($organization->email)
+            <p><strong>Email:</strong> {{ $organization->email }}</p>
+            @endif
+        </div>
+    </div>
+
+    <!-- Report Title -->
+    <div class="report-title">{{ $title }}</div>
+
+    <!-- Period Info -->
+    <div class="period-info">
+        @if($dateFrom && $dateTo)
+        <p><strong>Period:</strong> {{ \Carbon\Carbon::parse($dateFrom)->format('d/m/Y') }} <strong>to</strong> {{ \Carbon\Carbon::parse($dateTo)->format('d/m/Y') }}</p>
+        @endif
+        <p><strong>Generated On:</strong> {{ now()->format('d/m/Y h:i A') }}</p>
+    </div>
+
+    <!-- Report Content -->
+    @if($type === 'sales')
+        @include('reports.partials.sales-pdf', ['data' => $data])
+    @elseif($type === 'orders')
+        @include('reports.partials.orders-pdf', ['data' => $data])
+    @elseif($type === 'payments')
+        @include('reports.partials.payments-pdf', ['data' => $data])
+    @elseif($type === 'products')
+        @include('reports.partials.products-pdf', ['data' => $data])
+    @elseif($type === 'dealers')
+        @include('reports.partials.dealers-pdf', ['data' => $data])
+    @elseif($type === 'dispatches')
+        @include('reports.partials.dispatches-pdf', ['data' => $data])
+    @elseif($type === 'gst')
+        @include('reports.partials.gst-pdf', ['data' => $data])
+    @endif
+
+    <!-- Footer -->
+    <div class="footer">
+        <p>This is a computer-generated report. No signature required.</p>
+        <p>Generated by AgriChemTech ERP System</p>
+    </div>
+</body>
+</html>
+
