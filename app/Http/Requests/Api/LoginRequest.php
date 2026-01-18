@@ -24,8 +24,6 @@ class LoginRequest extends FormRequest
         return [
             'mobile' => 'required|string',
             'password' => 'required|string',
-            'organization_id' => 'sometimes|exists:organizations,id',
-            'user_type' => 'sometimes|in:user,dealer',
         ];
     }
 }

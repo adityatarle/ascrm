@@ -38,6 +38,15 @@
                 
                 @if(auth()->user()->hasRole('admin'))
                 <div class="nav-section-title">Masters</div>
+                <a class="nav-link {{ request()->routeIs('categories.*') ? 'active' : '' }}" href="{{ route('categories.index') }}">
+                    <i class="fas fa-folder me-2"></i> Categories
+                </a>
+                <a class="nav-link {{ request()->routeIs('crops.*') ? 'active' : '' }}" href="{{ route('crops.index') }}">
+                    <i class="fas fa-seedling me-2"></i> Crops
+                </a>
+                <a class="nav-link {{ request()->routeIs('banners.*') ? 'active' : '' }}" href="{{ route('banners.index') }}">
+                    <i class="fas fa-image me-2"></i> Banners
+                </a>
                 <a class="nav-link {{ request()->routeIs('units.*') ? 'active' : '' }}" href="{{ route('units.index') }}">
                     <i class="fas fa-ruler me-2"></i> Units
                 </a>

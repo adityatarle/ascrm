@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
@@ -18,8 +19,11 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property string $name
  * @property string|null $code
  * @property string|null $description
+ * @property string|null $contains_description
+ * @property int|null $category_id
  * @property string|null $unit
  * @property float $base_price
+ * @property float|null $unit_per_case
  * @property bool $is_active
  * @property \Illuminate\Support\Carbon|null $created_at
  * @property \Illuminate\Support\Carbon|null $updated_at
@@ -35,12 +39,15 @@ class Product extends Model
      */
     protected $fillable = [
         'organization_id',
+        'category_id',
         'name',
         'code',
         'description',
+        'contains_description',
         'unit',
         'unit_id',
         'base_price',
+        'unit_per_case',
         'is_active',
     ];
 
@@ -53,6 +60,7 @@ class Product extends Model
     {
         return [
             'base_price' => 'decimal:2',
+            'unit_per_case' => 'decimal:2',
             'is_active' => 'boolean',
         ];
     }
@@ -63,6 +71,14 @@ class Product extends Model
     public function organization(): BelongsTo
     {
         return $this->belongsTo(Organization::class);
+    }
+
+    /**
+     * Get the category that the product belongs to.
+     */
+    public function category(): BelongsTo
+    {
+        return $this->belongsTo(Category::class);
     }
 
     /**
@@ -103,6 +119,17 @@ class Product extends Model
     public function sizes(): HasMany
     {
         return $this->hasMany(ProductSize::class);
+    }
+
+    /**
+     * Get the crops this product is assigned to.
+     */
+    public function crops(): BelongsToMany
+    {
+        return $this->belongsToMany(Crop::class, 'crop_product')
+            ->withPivot('sort_order')
+            ->withTimestamps()
+            ->orderByPivot('sort_order');
     }
 }
 

@@ -44,12 +44,21 @@ class ProductController extends Controller
             $query->where('name', 'like', '%' . $request->search . '%');
         }
 
-        // Filter by category if category field exists (future enhancement)
-        if ($request->has('category')) {
-            // This can be extended when category field is added
+        // Filter by category
+        if ($request->has('category_id')) {
+            $query->where('category_id', $request->get('category_id'));
         }
 
-        $products = $query->with(['unit', 'stateRates.state'])
+        // Filter by crop
+        if ($request->has('crop_id')) {
+            $cropId = $request->get('crop_id');
+            $query->whereHas('crops', function ($q) use ($cropId) {
+                $q->where('crops.id', $cropId)
+                  ->where('crops.is_active', true);
+            });
+        }
+
+        $products = $query->with(['unit', 'category', 'stateRates.state'])
             ->orderBy('name')
             ->paginate($request->get('per_page', 15));
 
@@ -118,7 +127,7 @@ class ProductController extends Controller
     public function show(Request $request, int $id): JsonResponse
     {
         $user = auth('sanctum')->user();
-        $product = Product::with(['unit', 'stateRates.state', 'organization'])->findOrFail($id);
+        $product = Product::with(['unit', 'category', 'stateRates.state', 'organization'])->findOrFail($id);
 
         // Add calculated rate for dealers
         if ($user instanceof \App\Models\Dealer && $user->state_id) {
@@ -151,7 +160,10 @@ class ProductController extends Controller
             'name' => 'required|string|max:255',
             'code' => 'nullable|string|max:50|unique:products,code',
             'description' => 'nullable|string',
+            'contains_description' => 'nullable|string',
+            'category_id' => 'nullable|exists:categories,id',
             'base_price' => 'required|numeric|min:0',
+            'unit_per_case' => 'nullable|numeric|min:0',
             'unit_id' => 'required|exists:units,id',
             'gst_rate' => 'required|numeric|min:0|max:100',
             'is_active' => 'sometimes|boolean',
@@ -197,7 +209,10 @@ class ProductController extends Controller
             'name' => 'sometimes|string|max:255',
             'code' => 'sometimes|string|max:50|unique:products,code,' . $id,
             'description' => 'nullable|string',
+            'contains_description' => 'nullable|string',
+            'category_id' => 'nullable|exists:categories,id',
             'base_price' => 'sometimes|numeric|min:0',
+            'unit_per_case' => 'nullable|numeric|min:0',
             'unit_id' => 'sometimes|exists:units,id',
             'gst_rate' => 'sometimes|numeric|min:0|max:100',
             'is_active' => 'sometimes|boolean',

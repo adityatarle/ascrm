@@ -28,8 +28,27 @@
                     @error('description') <span class="text-danger">{{ $message }}</span> @enderror
                 </div>
 
+                <div class="mb-3">
+                    <label class="form-label">Contains Description</label>
+                    <textarea wire:model="containsDescription" class="form-control @error('containsDescription') is-invalid @enderror" rows="3" placeholder="Enter what the product contains (e.g., ingredients, components, etc.)"></textarea>
+                    @error('containsDescription') <span class="text-danger">{{ $message }}</span> @enderror
+                    <small class="text-muted">Describe what the product contains (ingredients, components, etc.)</small>
+                </div>
+
+                <div class="mb-3">
+                    <label class="form-label">Category</label>
+                    <select wire:model="categoryId" class="form-select @error('categoryId') is-invalid @enderror">
+                        <option value="">-- Select Category --</option>
+                        @foreach($categories as $category)
+                        <option value="{{ $category->id }}">{{ $category->name }}</option>
+                        @endforeach
+                    </select>
+                    @error('categoryId') <span class="text-danger">{{ $message }}</span> @enderror
+                    <small class="text-muted">Select a category for this product</small>
+                </div>
+
                 <div class="row">
-                    <div class="col-md-4 mb-3">
+                    <div class="col-md-3 mb-3">
                         <label class="form-label">Unit</label>
                         <select wire:model="unitId" class="form-select @error('unitId') is-invalid @enderror">
                             <option value="">-- Select Unit --</option>
@@ -40,18 +59,24 @@
                         @error('unitId') <span class="text-danger">{{ $message }}</span> @enderror
                         <small class="text-muted">Or enter custom unit below</small>
                     </div>
-                    <div class="col-md-4 mb-3">
+                    <div class="col-md-3 mb-3">
                         <label class="form-label">Custom Unit (if not in list)</label>
                         <input type="text" wire:model="unit" class="form-control @error('unit') is-invalid @enderror" placeholder="e.g., Kg, Litre">
                         @error('unit') <span class="text-danger">{{ $message }}</span> @enderror
                     </div>
-                    <div class="col-md-4 mb-3">
+                    <div class="col-md-3 mb-3">
                         <label class="form-label">Base Price *</label>
                         <div class="input-group">
                             <span class="input-group-text">₹</span>
                             <input type="number" wire:model="basePrice" step="0.01" min="0" class="form-control @error('basePrice') is-invalid @enderror">
                         </div>
                         @error('basePrice') <span class="text-danger">{{ $message }}</span> @enderror
+                    </div>
+                    <div class="col-md-3 mb-3">
+                        <label class="form-label">Unit Per Case</label>
+                        <input type="number" wire:model="unitPerCase" step="0.01" min="0" class="form-control @error('unitPerCase') is-invalid @enderror" placeholder="e.g., 12, 24">
+                        @error('unitPerCase') <span class="text-danger">{{ $message }}</span> @enderror
+                        <small class="text-muted">Number of units in one case/pack</small>
                     </div>
                 </div>
 

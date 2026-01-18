@@ -2,6 +2,7 @@
 
 namespace App\Livewire\Masters;
 
+use App\Models\Category;
 use App\Models\Product;
 use App\Models\Unit;
 use App\Models\ProductSize;
@@ -14,18 +15,23 @@ class ProductForm extends Component
     public $name;
     public $code;
     public $description;
+    public $containsDescription;
+    public $categoryId;
     public $unit;
     public $unitId;
     public $basePrice;
+    public $unitPerCase;
     public $isActive = true;
     
     // Product sizes
     public $sizes = [];
     public $units = [];
+    public $categories = [];
 
     public function mount($product = null)
     {
         $this->units = Unit::where('is_active', true)->orderBy('sort_order')->orderBy('name')->get();
+        $this->categories = Category::where('is_active', true)->orderBy('sort_order')->orderBy('name')->get();
         
         if ($product) {
             // Handle route model binding
@@ -40,9 +46,12 @@ class ProductForm extends Component
             $this->name = $productModel->name;
             $this->code = $productModel->code;
             $this->description = $productModel->description;
+            $this->containsDescription = $productModel->contains_description;
+            $this->categoryId = $productModel->category_id;
             $this->unit = $productModel->unit;
             $this->unitId = $productModel->unit_id;
             $this->basePrice = $productModel->base_price;
+            $this->unitPerCase = $productModel->unit_per_case;
             $this->isActive = $productModel->is_active;
             
             // Load product sizes
@@ -83,9 +92,12 @@ class ProductForm extends Component
             'name' => 'required|string|max:255',
             'code' => 'nullable|string|max:255',
             'description' => 'nullable|string',
+            'containsDescription' => 'nullable|string',
+            'categoryId' => 'nullable|exists:categories,id',
             'unit' => 'nullable|string|max:20',
             'unitId' => 'nullable|exists:units,id',
             'basePrice' => 'required|numeric|min:0',
+            'unitPerCase' => 'nullable|numeric|min:0',
             'isActive' => 'boolean',
             'sizes.*.unit_id' => 'nullable|exists:units,id',
             'sizes.*.size_value' => 'nullable|numeric|min:0',
@@ -104,9 +116,12 @@ class ProductForm extends Component
                 'name' => $this->name,
                 'code' => $this->code,
                 'description' => $this->description,
+                'contains_description' => $this->containsDescription,
+                'category_id' => $this->categoryId,
                 'unit' => $this->unit,
                 'unit_id' => $this->unitId,
                 'base_price' => $this->basePrice,
+                'unit_per_case' => $this->unitPerCase,
                 'is_active' => $this->isActive,
             ]);
             
@@ -120,9 +135,12 @@ class ProductForm extends Component
                 'name' => $this->name,
                 'code' => $this->code,
                 'description' => $this->description,
+                'contains_description' => $this->containsDescription,
+                'category_id' => $this->categoryId,
                 'unit' => $this->unit,
                 'unit_id' => $this->unitId,
                 'base_price' => $this->basePrice,
+                'unit_per_case' => $this->unitPerCase,
                 'is_active' => $this->isActive,
             ]);
             

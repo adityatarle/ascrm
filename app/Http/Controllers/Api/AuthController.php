@@ -15,6 +15,7 @@ class AuthController extends Controller
 {
     /**
      * Unified login for both Users and Dealers.
+     * Automatically detects user type based on credentials.
      * Returns user_type and roles for dashboard routing.
      *
      * @param LoginRequest $request
@@ -23,35 +24,33 @@ class AuthController extends Controller
      */
     public function login(LoginRequest $request): JsonResponse
     {
-        $userType = $request->input('user_type', 'dealer'); // Default to dealer for backward compatibility
+        // Try to find user first
+        $user = User::where('mobile', $request->mobile)->first();
         
-        if ($userType === 'user') {
-            return $this->loginUser($request);
-        } else {
-            return $this->loginDealer($request);
+        if ($user && Hash::check($request->password, $user->password)) {
+            return $this->loginUser($request, $user);
         }
+        
+        // If not a user, try dealer
+        $dealer = Dealer::where('mobile', $request->mobile)
+            ->where('is_active', true)
+            ->first();
+        
+        if ($dealer && Hash::check($request->password, $dealer->password)) {
+            return $this->loginDealer($request, $dealer);
+        }
+        
+        // If neither found or password incorrect
+        throw ValidationException::withMessages([
+            'mobile' => ['The provided credentials are incorrect.'],
+        ]);
     }
 
     /**
      * Handle user (admin/accountant/sales/dispatch) login.
      */
-    protected function loginUser(LoginRequest $request): JsonResponse
+    protected function loginUser(LoginRequest $request, User $user): JsonResponse
     {
-        $user = User::where('mobile', $request->mobile)->first();
-
-        if (!$user || !Hash::check($request->password, $user->password)) {
-            throw ValidationException::withMessages([
-                'mobile' => ['The provided credentials are incorrect.'],
-            ]);
-        }
-
-        // Check organization if provided
-        if ($request->organization_id && $user->organization_id != $request->organization_id) {
-            throw ValidationException::withMessages([
-                'organization_id' => ['The user does not belong to this organization.'],
-            ]);
-        }
-
         $token = $user->createToken('mobile-app')->plainTextToken;
         $roles = $user->getRoleNames();
 
@@ -67,25 +66,28 @@ class AuthController extends Controller
 
     /**
      * Handle dealer login.
+     * Automatically determines organization from dealer's orders or uses first organization.
      */
-    protected function loginDealer(LoginRequest $request): JsonResponse
+    protected function loginDealer(LoginRequest $request, Dealer $dealer): JsonResponse
     {
-        if (!$request->organization_id) {
-            throw ValidationException::withMessages([
-                'organization_id' => ['Organization ID is required for dealer login.'],
-            ]);
-        }
-
-        $organization = Organization::findOrFail($request->organization_id);
-
-        $dealer = Dealer::where('mobile', $request->mobile)
-            ->where('is_active', true)
+        // Try to get organization from dealer's most recent order
+        $recentOrder = $dealer->orders()
+            ->with('organization')
+            ->orderBy('created_at', 'desc')
             ->first();
+        
+        $organization = $recentOrder?->organization;
 
-        if (!$dealer || !Hash::check($request->password, $dealer->password)) {
-            throw ValidationException::withMessages([
-                'mobile' => ['The provided credentials are incorrect.'],
-            ]);
+        // If no orders, get the first organization (or default organization)
+        if (!$organization) {
+            $organization = Organization::first();
+            
+            // If still no organization, throw error
+            if (!$organization) {
+                throw ValidationException::withMessages([
+                    'mobile' => ['No organization found. Please contact administrator.'],
+                ]);
+            }
         }
 
         $token = $dealer->createToken('mobile-app')->plainTextToken;

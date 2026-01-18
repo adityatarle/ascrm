@@ -33,6 +33,27 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/state-wise-product-rates', \App\Livewire\Masters\StateWiseProductRates::class)->name('state-wise-product-rates.index');
     });
 
+    // Category Master (Admin only)
+    Route::middleware('role:admin')->group(function () {
+        Route::get('/categories', \App\Livewire\Masters\CategoriesTable::class)->name('categories.index');
+        Route::get('/categories/create', \App\Livewire\Masters\CategoryForm::class)->name('categories.create');
+        Route::get('/categories/{category}/edit', \App\Livewire\Masters\CategoryForm::class)->name('categories.edit');
+    });
+
+    // Crop Master (Admin only)
+    Route::middleware('role:admin')->group(function () {
+        Route::get('/crops', \App\Livewire\Masters\CropsTable::class)->name('crops.index');
+        Route::get('/crops/create', \App\Livewire\Masters\CropForm::class)->name('crops.create');
+        Route::get('/crops/{crop}/edit', \App\Livewire\Masters\CropForm::class)->name('crops.edit');
+    });
+
+    // Banner Master (Admin only)
+    Route::middleware('role:admin')->group(function () {
+        Route::get('/banners', \App\Livewire\Masters\BannersTable::class)->name('banners.index');
+        Route::get('/banners/create', \App\Livewire\Masters\BannerForm::class)->name('banners.create');
+        Route::get('/banners/{banner}/edit', \App\Livewire\Masters\BannerForm::class)->name('banners.edit');
+    });
+
     // Dealers
     Route::get('/dealers', \App\Livewire\Dealers\DealersTable::class)->name('dealers.index');
     Route::get('/dealers/create', DealerForm::class)->name('dealers.create');

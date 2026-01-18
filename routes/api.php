@@ -1,7 +1,9 @@
 <?php
 
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\BannerController;
 use App\Http\Controllers\Api\CartController;
+use App\Http\Controllers\Api\CropController;
 use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\DealerController;
 use App\Http\Controllers\Api\DispatchController;
@@ -27,6 +29,12 @@ use Illuminate\Support\Facades\Route;
 Route::post('/login', [AuthController::class, 'login']);
 Route::post('/dealers/register', [DealerController::class, 'register']);
 
+// Banner routes (Public - accessible without authentication for mobile app)
+Route::prefix('banners')->group(function () {
+    Route::get('/', [BannerController::class, 'index']); // Get active banners
+    Route::get('/{id}', [BannerController::class, 'show']); // Get specific banner
+});
+
 // Protected routes (require Sanctum authentication)
 Route::middleware('auth:sanctum')->group(function () {
     // Auth routes
@@ -48,6 +56,13 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::put('/profile', [DealerController::class, 'update']); // Dealers only
         Route::get('/', [DealerController::class, 'index']); // Users: admin/sales/accountant
         Route::get('/{id}', [DealerController::class, 'show']); // Users: admin/sales/accountant
+    });
+
+    // Crop routes
+    Route::prefix('crops')->group(function () {
+        Route::get('/', [CropController::class, 'index']); // All authenticated users - Get all crops with products
+        Route::get('/{id}', [CropController::class, 'show']); // All authenticated users - Get specific crop with products
+        Route::get('/{id}/products', [CropController::class, 'products']); // All authenticated users - Get products for a crop
     });
 
     // Product routes

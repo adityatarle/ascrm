@@ -29,6 +29,7 @@
                         <tr>
                             <th>Code</th>
                             <th>Name</th>
+                            <th>Category</th>
                             <th>Unit</th>
                             <th class="text-number">Base Price</th>
                             <th>Status</th>
@@ -40,6 +41,13 @@
                         <tr>
                             <td>{{ $product->code }}</td>
                             <td>{{ $product->name }}</td>
+                            <td>
+                                @if($product->category)
+                                    <span class="badge bg-info">{{ $product->category->name }}</span>
+                                @else
+                                    <span class="text-muted">-</span>
+                                @endif
+                            </td>
                             <td>{{ $product->unit }}</td>
                             <td class="text-number">₹{{ number_format($product->base_price, 2) }}</td>
                             <td>
@@ -68,7 +76,7 @@
                         </tr>
                         @empty
                         <tr>
-                            <td colspan="6" class="text-center">No products found</td>
+                            <td colspan="7" class="text-center">No products found</td>
                         </tr>
                         @endforelse
                     </tbody>

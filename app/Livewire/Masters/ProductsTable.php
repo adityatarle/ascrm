@@ -65,7 +65,8 @@ class ProductsTable extends Component
             });
         }
 
-        $products = $query->orderBy('name', 'asc')
+        $products = $query->with('category')
+            ->orderBy('name', 'asc')
             ->paginate($this->perPage);
 
         return view('livewire.masters.products-table', [
