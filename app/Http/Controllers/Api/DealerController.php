@@ -10,8 +10,9 @@ use App\Models\User;
 use App\Models\Zone;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Storage;
 
-class DealerController extends Controller
+class DealerController extends BaseApiController
 {
     /**
      * Register a new dealer.
@@ -26,6 +27,17 @@ class DealerController extends Controller
         // Auto-assign zone from city
         $zoneId = $city->zone_id;
 
+        // Handle image uploads
+        $imagePaths = [];
+        for ($i = 1; $i <= 4; $i++) {
+            $imageKey = "image_{$i}";
+            if ($request->hasFile($imageKey)) {
+                $image = $request->file($imageKey);
+                $imagePath = $image->store('dealers', 'public');
+                $imagePaths[$imageKey] = $imagePath;
+            }
+        }
+
         $dealer = Dealer::create([
             'name' => $request->name,
             'mobile' => $request->mobile,
@@ -34,16 +46,23 @@ class DealerController extends Controller
             'address' => $request->address,
             'zone_id' => $zoneId,
             'state_id' => $request->state_id,
+            'district_id' => $request->district_id,
+            'taluka_id' => $request->taluka_id,
             'city_id' => $request->city_id,
             'pincode' => $request->pincode,
             'password' => $request->password,
             'is_active' => true,
+            'image_1' => $imagePaths['image_1'] ?? null,
+            'image_2' => $imagePaths['image_2'] ?? null,
+            'image_3' => $imagePaths['image_3'] ?? null,
+            'image_4' => $imagePaths['image_4'] ?? null,
         ]);
 
-        return response()->json([
-            'message' => 'Dealer registered successfully',
-            'dealer' => $dealer->load(['state', 'city', 'zone']),
-        ], 201);
+        return $this->successResponse(
+            $dealer->load(['state', 'district', 'taluka', 'city', 'zone']),
+            'DEALER REGISTERED SUCCESSFULLY',
+            201
+        );
     }
 
     /**

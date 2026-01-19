@@ -2,7 +2,7 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Http\Controllers\Controller;
+use App\Http\Controllers\Api\BaseApiController;
 use App\Http\Requests\Api\LoginRequest;
 use App\Models\Dealer;
 use App\Models\Organization;
@@ -11,7 +11,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
 
-class AuthController extends Controller
+class AuthController extends BaseApiController
 {
     /**
      * Unified login for both Users and Dealers.
@@ -41,9 +41,7 @@ class AuthController extends Controller
         }
         
         // If neither found or password incorrect
-        throw ValidationException::withMessages([
-            'mobile' => ['The provided credentials are incorrect.'],
-        ]);
+        return $this->errorResponse('INVALID CREDENTIALS', ['mobile' => ['The provided credentials are incorrect.']], 401);
     }
 
     /**
@@ -54,14 +52,21 @@ class AuthController extends Controller
         $token = $user->createToken('mobile-app')->plainTextToken;
         $roles = $user->getRoleNames();
 
-        return response()->json([
+        // Get user data without organization relationship to avoid duplication
+        $user->load('organization');
+        $userData = $user->makeHidden(['organization'])->toArray();
+        // Remove organization_id from user data as we'll include organization separately
+        unset($userData['organization_id']);
+
+        $data = [
             'user_type' => 'user',
-            'user' => $user->load('organization'),
+            'user' => $userData,
             'organization' => $user->organization,
             'roles' => $roles,
-            'permissions' => $this->getUserPermissions($user),
             'token' => $token,
-        ]);
+        ];
+
+        return $this->successResponse($data, 'LOGIN SUCCESSFUL');
     }
 
     /**
@@ -82,24 +87,25 @@ class AuthController extends Controller
         if (!$organization) {
             $organization = Organization::first();
             
-            // If still no organization, throw error
+            // If still no organization, return error
             if (!$organization) {
-                throw ValidationException::withMessages([
-                    'mobile' => ['No organization found. Please contact administrator.'],
-                ]);
+                return $this->errorResponse('NO ORGANIZATION FOUND', ['mobile' => ['No organization found. Please contact administrator.']], 400);
             }
         }
 
         $token = $dealer->createToken('mobile-app')->plainTextToken;
 
-        return response()->json([
+        $dealerData = $dealer->load(['state', 'city', 'zone'])->toArray();
+
+        $data = [
             'user_type' => 'dealer',
-            'dealer' => $dealer->load(['state', 'city', 'zone']),
+            'dealer' => $dealerData,
             'organization' => $organization,
             'roles' => ['dealer'],
-            'permissions' => ['view_orders', 'create_orders', 'view_profile', 'update_profile'],
             'token' => $token,
-        ]);
+        ];
+
+        return $this->successResponse($data, 'LOGIN SUCCESSFUL');
     }
 
     /**
@@ -150,7 +156,7 @@ class AuthController extends Controller
             $user->currentAccessToken()->delete();
         }
 
-        return response()->json(['message' => 'Logged out successfully']);
+        return $this->successResponse(null, 'LOGGED OUT SUCCESSFULLY');
     }
 
     /**
@@ -163,26 +169,32 @@ class AuthController extends Controller
         $user = auth('sanctum')->user();
 
         if (!$user) {
-            return response()->json(['message' => 'Unauthenticated'], 401);
+            return $this->unauthorizedResponse('UNAUTHENTICATED');
         }
 
         // Check if it's a User or Dealer
         if ($user instanceof User) {
-            return response()->json([
+            $user->load('organization');
+            $userData = $user->makeHidden(['organization'])->toArray();
+            unset($userData['organization_id']);
+            
+            $data = [
                 'user_type' => 'user',
-                'user' => $user->load('organization'),
+                'user' => $userData,
                 'organization' => $user->organization,
                 'roles' => $user->getRoleNames(),
-                'permissions' => $this->getUserPermissions($user),
-            ]);
+            ];
         } else {
-            return response()->json([
+            $dealerData = $user->load(['state', 'city', 'zone'])->toArray();
+            
+            $data = [
                 'user_type' => 'dealer',
-                'dealer' => $user->load(['state', 'city', 'zone']),
+                'dealer' => $dealerData,
                 'roles' => ['dealer'],
-                'permissions' => ['view_orders', 'create_orders', 'view_profile', 'update_profile'],
-            ]);
+            ];
         }
+
+        return $this->successResponse($data, 'USER PROFILE RETRIEVED');
     }
 }
 

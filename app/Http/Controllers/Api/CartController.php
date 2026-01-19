@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Http\Controllers\Controller;
 use App\Models\Cart;
 use App\Models\Dealer;
 use App\Models\Product;
@@ -10,7 +9,7 @@ use App\Models\ProductStateRate;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
-class CartController extends Controller
+class CartController extends BaseApiController
 {
     /**
      * Get cart items for authenticated dealer.
@@ -23,7 +22,7 @@ class CartController extends Controller
         $dealer = $request->user('sanctum');
 
         if (!$dealer instanceof Dealer) {
-            return response()->json(['message' => 'Unauthorized'], 403);
+            return $this->unauthorizedResponse('UNAUTHORIZED');
         }
 
         $cartItems = Cart::where('dealer_id', $dealer->id)
@@ -57,14 +56,16 @@ class CartController extends Controller
         $subtotal = $items->sum('subtotal');
         $itemCount = $items->sum('quantity');
 
-        return response()->json([
-            'items' => $items,
+        $data = [
+            'items' => $items->toArray(),
             'summary' => [
                 'item_count' => $items->count(),
                 'total_quantity' => $itemCount,
                 'subtotal' => $subtotal,
             ],
-        ]);
+        ];
+
+        return $this->successResponse($data, 'CART ITEMS RETRIEVED SUCCESSFULLY');
     }
 
     /**
@@ -78,7 +79,7 @@ class CartController extends Controller
         $dealer = $request->user('sanctum');
 
         if (!$dealer instanceof Dealer) {
-            return response()->json(['message' => 'Unauthorized'], 403);
+            return $this->unauthorizedResponse('UNAUTHORIZED');
         }
 
         $validated = $request->validate([
@@ -89,9 +90,7 @@ class CartController extends Controller
         $product = Product::findOrFail($validated['product_id']);
 
         if (!$product->is_active) {
-            return response()->json([
-                'message' => 'Product is not available',
-            ], 422);
+            return $this->errorResponse('PRODUCT NOT AVAILABLE', null, 422);
         }
 
         // Check if item already exists in cart
@@ -114,15 +113,14 @@ class CartController extends Controller
 
         $cartItem->load(['product.unit']);
 
-        return response()->json([
-            'message' => 'Product added to cart successfully',
-            'cart_item' => [
-                'id' => $cartItem->id,
-                'product_id' => $cartItem->product_id,
-                'quantity' => $cartItem->quantity,
-                'product' => $cartItem->product,
-            ],
-        ], 201);
+        $data = [
+            'id' => $cartItem->id,
+            'product_id' => $cartItem->product_id,
+            'quantity' => $cartItem->quantity,
+            'product' => $cartItem->product->toArray(),
+        ];
+
+        return $this->successResponse($data, 'PRODUCT ADDED TO CART SUCCESSFULLY', 201);
     }
 
     /**
@@ -137,7 +135,7 @@ class CartController extends Controller
         $dealer = $request->user('sanctum');
 
         if (!$dealer instanceof Dealer) {
-            return response()->json(['message' => 'Unauthorized'], 403);
+            return $this->unauthorizedResponse('UNAUTHORIZED');
         }
 
         $cartItem = Cart::where('dealer_id', $dealer->id)
@@ -150,15 +148,14 @@ class CartController extends Controller
         $cartItem->update(['quantity' => $validated['quantity']]);
         $cartItem->load(['product.unit']);
 
-        return response()->json([
-            'message' => 'Cart item updated successfully',
-            'cart_item' => [
-                'id' => $cartItem->id,
-                'product_id' => $cartItem->product_id,
-                'quantity' => $cartItem->quantity,
-                'product' => $cartItem->product,
-            ],
-        ]);
+        $data = [
+            'id' => $cartItem->id,
+            'product_id' => $cartItem->product_id,
+            'quantity' => $cartItem->quantity,
+            'product' => $cartItem->product->toArray(),
+        ];
+
+        return $this->successResponse($data, 'CART ITEM UPDATED SUCCESSFULLY');
     }
 
     /**
@@ -173,7 +170,7 @@ class CartController extends Controller
         $dealer = $request->user('sanctum');
 
         if (!$dealer instanceof Dealer) {
-            return response()->json(['message' => 'Unauthorized'], 403);
+            return $this->unauthorizedResponse('UNAUTHORIZED');
         }
 
         $cartItem = Cart::where('dealer_id', $dealer->id)
@@ -181,9 +178,7 @@ class CartController extends Controller
 
         $cartItem->delete();
 
-        return response()->json([
-            'message' => 'Product removed from cart successfully',
-        ]);
+        return $this->successResponse(null, 'PRODUCT REMOVED FROM CART SUCCESSFULLY');
     }
 
     /**
@@ -197,14 +192,12 @@ class CartController extends Controller
         $dealer = $request->user('sanctum');
 
         if (!$dealer instanceof Dealer) {
-            return response()->json(['message' => 'Unauthorized'], 403);
+            return $this->unauthorizedResponse('UNAUTHORIZED');
         }
 
         Cart::where('dealer_id', $dealer->id)->delete();
 
-        return response()->json([
-            'message' => 'Cart cleared successfully',
-        ]);
+        return $this->successResponse(null, 'CART CLEARED SUCCESSFULLY');
     }
 
     /**

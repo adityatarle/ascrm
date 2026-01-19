@@ -56,6 +56,15 @@
                 <a class="nav-link {{ request()->routeIs('state-wise-product-rates.*') ? 'active' : '' }}" href="{{ route('state-wise-product-rates.index') }}">
                     <i class="fas fa-map-marker-alt me-2"></i> State-wise Product Rates
                 </a>
+                <a class="nav-link {{ request()->routeIs('states.*') ? 'active' : '' }}" href="{{ route('states.index') }}">
+                    <i class="fas fa-map me-2"></i> States
+                </a>
+                <a class="nav-link {{ request()->routeIs('districts.*') ? 'active' : '' }}" href="{{ route('districts.index') }}">
+                    <i class="fas fa-map-marked-alt me-2"></i> Districts
+                </a>
+                <a class="nav-link {{ request()->routeIs('talukas.*') ? 'active' : '' }}" href="{{ route('talukas.index') }}">
+                    <i class="fas fa-map-pin me-2"></i> Talukas
+                </a>
                 @endif
                 
                 @if(auth()->user()->hasRole('admin'))

@@ -2,13 +2,12 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Http\Controllers\Controller;
 use App\Models\Product;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
-class ProductController extends Controller
+class ProductController extends BaseApiController
 {
     /**
      * Get list of products with details.
@@ -71,7 +70,7 @@ class ProductController extends Controller
             });
         }
 
-        return response()->json($products);
+        return $this->successResponse($products->toArray(), 'PRODUCTS RETRIEVED SUCCESSFULLY');
     }
 
     /**
@@ -90,9 +89,7 @@ class ProductController extends Controller
             ['id' => 5, 'name' => 'Other', 'slug' => 'other'],
         ];
 
-        return response()->json([
-            'categories' => $categories,
-        ]);
+        return $this->successResponse($categories, 'CATEGORIES RETRIEVED SUCCESSFULLY');
     }
 
     /**
@@ -135,7 +132,7 @@ class ProductController extends Controller
             $product->calculated_rate = $rate;
         }
 
-        return response()->json(['product' => $product]);
+        return $this->successResponse($product->toArray(), 'PRODUCT RETRIEVED SUCCESSFULLY');
     }
 
     /**
@@ -149,11 +146,11 @@ class ProductController extends Controller
         $user = auth('sanctum')->user();
 
         if (!$user instanceof User) {
-            return response()->json(['message' => 'Unauthorized'], 403);
+            return $this->unauthorizedResponse('UNAUTHORIZED');
         }
 
         if (!$user->hasAnyRole(['admin', 'sales_officer'])) {
-            return response()->json(['message' => 'Forbidden'], 403);
+            return $this->forbiddenResponse('FORBIDDEN');
         }
 
         $validated = $request->validate([
@@ -174,10 +171,7 @@ class ProductController extends Controller
 
         $product = Product::create($validated);
 
-        return response()->json([
-            'message' => 'Product created successfully',
-            'product' => $product->load('unit'),
-        ], 201);
+        return $this->successResponse($product->load('unit')->toArray(), 'PRODUCT CREATED SUCCESSFULLY', 201);
     }
 
     /**
@@ -192,17 +186,17 @@ class ProductController extends Controller
         $user = auth('sanctum')->user();
 
         if (!$user instanceof User) {
-            return response()->json(['message' => 'Unauthorized'], 403);
+            return $this->unauthorizedResponse('UNAUTHORIZED');
         }
 
         $product = Product::findOrFail($id);
 
         if ($product->organization_id !== $user->organization_id) {
-            return response()->json(['message' => 'Forbidden'], 403);
+            return $this->forbiddenResponse('FORBIDDEN');
         }
 
         if (!$user->hasAnyRole(['admin', 'sales_officer'])) {
-            return response()->json(['message' => 'Forbidden'], 403);
+            return $this->forbiddenResponse('FORBIDDEN');
         }
 
         $validated = $request->validate([
@@ -220,10 +214,7 @@ class ProductController extends Controller
 
         $product->update($validated);
 
-        return response()->json([
-            'message' => 'Product updated successfully',
-            'product' => $product->fresh()->load('unit'),
-        ]);
+        return $this->successResponse($product->fresh()->load('unit')->toArray(), 'PRODUCT UPDATED SUCCESSFULLY');
     }
 
     /**
@@ -237,17 +228,17 @@ class ProductController extends Controller
         $user = auth('sanctum')->user();
 
         if (!$user instanceof User || !$user->hasRole('admin')) {
-            return response()->json(['message' => 'Forbidden'], 403);
+            return $this->forbiddenResponse('FORBIDDEN');
         }
 
         $product = Product::findOrFail($id);
 
         if ($product->organization_id !== $user->organization_id) {
-            return response()->json(['message' => 'Forbidden'], 403);
+            return $this->forbiddenResponse('FORBIDDEN');
         }
 
         $product->delete();
 
-        return response()->json(['message' => 'Product deleted successfully']);
+        return $this->successResponse(null, 'PRODUCT DELETED SUCCESSFULLY');
     }
 }

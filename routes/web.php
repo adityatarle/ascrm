@@ -54,6 +54,27 @@ Route::middleware(['auth'])->group(function () {
         Route::get('/banners/{banner}/edit', \App\Livewire\Masters\BannerForm::class)->name('banners.edit');
     });
 
+    // State Master (Admin only)
+    Route::middleware('role:admin')->group(function () {
+        Route::get('/states', \App\Livewire\Masters\StateMasterTable::class)->name('states.index');
+        Route::get('/states/create', \App\Livewire\Masters\StateMasterForm::class)->name('states.create');
+        Route::get('/states/{state}/edit', \App\Livewire\Masters\StateMasterForm::class)->name('states.edit');
+    });
+
+    // District Master (Admin only)
+    Route::middleware('role:admin')->group(function () {
+        Route::get('/districts', \App\Livewire\Masters\DistrictMasterTable::class)->name('districts.index');
+        Route::get('/districts/create', \App\Livewire\Masters\DistrictMasterForm::class)->name('districts.create');
+        Route::get('/districts/{district}/edit', \App\Livewire\Masters\DistrictMasterForm::class)->name('districts.edit');
+    });
+
+    // Taluka Master (Admin only)
+    Route::middleware('role:admin')->group(function () {
+        Route::get('/talukas', \App\Livewire\Masters\TalukaMasterTable::class)->name('talukas.index');
+        Route::get('/talukas/create', \App\Livewire\Masters\TalukaMasterForm::class)->name('talukas.create');
+        Route::get('/talukas/{taluka}/edit', \App\Livewire\Masters\TalukaMasterForm::class)->name('talukas.edit');
+    });
+
     // Dealers
     Route::get('/dealers', \App\Livewire\Dealers\DealersTable::class)->name('dealers.index');
     Route::get('/dealers/create', DealerForm::class)->name('dealers.create');

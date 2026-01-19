@@ -7,10 +7,13 @@ use App\Http\Controllers\Api\CropController;
 use App\Http\Controllers\Api\DashboardController;
 use App\Http\Controllers\Api\DealerController;
 use App\Http\Controllers\Api\DispatchController;
+use App\Http\Controllers\Api\DistrictController;
 use App\Http\Controllers\Api\OrderController;
 use App\Http\Controllers\Api\PaymentController;
 use App\Http\Controllers\Api\ProductController;
 use App\Http\Controllers\Api\ReportController;
+use App\Http\Controllers\Api\StateController;
+use App\Http\Controllers\Api\TalukaController;
 use App\Http\Controllers\Api\UserController;
 use Illuminate\Support\Facades\Route;
 
@@ -25,18 +28,20 @@ use Illuminate\Support\Facades\Route;
 |
 */
 
-// Public routes
-Route::post('/login', [AuthController::class, 'login']);
-Route::post('/dealers/register', [DealerController::class, 'register']);
+// Version 1 API routes
+Route::prefix('v1')->group(function () {
+    // Public routes
+    Route::post('/login', [AuthController::class, 'login']);
+    Route::post('/dealers/register', [DealerController::class, 'register'])->name('api.dealers.register');
 
-// Banner routes (Public - accessible without authentication for mobile app)
-Route::prefix('banners')->group(function () {
-    Route::get('/', [BannerController::class, 'index']); // Get active banners
-    Route::get('/{id}', [BannerController::class, 'show']); // Get specific banner
-});
+    // Banner routes (Public - accessible without authentication for mobile app)
+    Route::prefix('banners')->group(function () {
+        Route::get('/', [BannerController::class, 'index']); // Get active banners
+        Route::get('/{id}', [BannerController::class, 'show']); // Get specific banner
+    });
 
-// Protected routes (require Sanctum authentication)
-Route::middleware('auth:sanctum')->group(function () {
+    // Protected routes (require Sanctum authentication)
+    Route::middleware('auth:sanctum')->group(function () {
     // Auth routes
     Route::post('/logout', [AuthController::class, 'logout']);
     Route::get('/me', [AuthController::class, 'me']); // Get authenticated user/dealer info
@@ -63,6 +68,24 @@ Route::middleware('auth:sanctum')->group(function () {
         Route::get('/', [CropController::class, 'index']); // All authenticated users - Get all crops with products
         Route::get('/{id}', [CropController::class, 'show']); // All authenticated users - Get specific crop with products
         Route::get('/{id}/products', [CropController::class, 'products']); // All authenticated users - Get products for a crop
+    });
+
+    // State, District, Taluka routes (Public - for cascading dropdowns)
+    Route::prefix('states')->group(function () {
+        Route::get('/', [StateController::class, 'index']); // Get all states
+        Route::get('/{id}', [StateController::class, 'show']); // Get specific state
+        Route::get('/{id}/districts', [DistrictController::class, 'index']); // Get districts by state
+    });
+
+    Route::prefix('districts')->group(function () {
+        Route::get('/', [DistrictController::class, 'index']); // Get all districts (filter by state_id)
+        Route::get('/{id}', [DistrictController::class, 'show']); // Get specific district
+        Route::get('/{id}/talukas', [TalukaController::class, 'index']); // Get talukas by district
+    });
+
+    Route::prefix('talukas')->group(function () {
+        Route::get('/', [TalukaController::class, 'index']); // Get all talukas (filter by district_id or state_id)
+        Route::get('/{id}', [TalukaController::class, 'show']); // Get specific taluka
     });
 
     // Product routes
@@ -111,6 +134,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::prefix('reports')->group(function () {
         Route::get('/sales', [ReportController::class, 'sales']); // Users: admin/accountant
         Route::get('/dealer-performance', [ReportController::class, 'dealerPerformance']); // Users: admin/sales_officer
+    });
     });
 });
 

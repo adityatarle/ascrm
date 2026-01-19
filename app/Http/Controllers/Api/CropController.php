@@ -2,12 +2,11 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Http\Controllers\Controller;
 use App\Models\Crop;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
-class CropController extends Controller
+class CropController extends BaseApiController
 {
     /**
      * Get list of all active crops with their products.
@@ -47,9 +46,7 @@ class CropController extends Controller
             });
         }
 
-        return response()->json([
-            'crops' => $crops,
-        ]);
+        return $this->successResponse($crops->toArray(), 'CROPS RETRIEVED SUCCESSFULLY');
     }
 
     /**
@@ -80,9 +77,7 @@ class CropController extends Controller
             });
         }
 
-        return response()->json([
-            'crop' => $crop,
-        ]);
+        return $this->successResponse($crop->toArray(), 'CROP RETRIEVED SUCCESSFULLY');
     }
 
     /**
@@ -133,7 +128,7 @@ class CropController extends Controller
             });
         }
 
-        return response()->json($products);
+        return $this->successResponse($products->toArray(), 'PRODUCTS RETRIEVED SUCCESSFULLY');
     }
 
     /**

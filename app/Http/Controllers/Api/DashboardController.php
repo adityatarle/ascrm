@@ -2,7 +2,6 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Http\Controllers\Controller;
 use App\Models\Dealer;
 use App\Models\Dispatch;
 use App\Models\Order;
@@ -11,7 +10,7 @@ use App\Models\User;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\DB;
 
-class DashboardController extends Controller
+class DashboardController extends BaseApiController
 {
     /**
      * Get dashboard data based on user type and role.
@@ -105,12 +104,14 @@ class DashboardController extends Controller
                 ->get();
         }
 
-        return response()->json([
+        $data = [
             'user_type' => 'user',
             'roles' => $user->getRoleNames(),
             'stats' => $stats,
-            'recent_orders' => $recentOrders,
-        ]);
+            'recent_orders' => $recentOrders->toArray(),
+        ];
+
+        return $this->successResponse($data, 'DASHBOARD DATA RETRIEVED SUCCESSFULLY');
     }
 
     /**
@@ -139,10 +140,12 @@ class DashboardController extends Controller
             ->limit(5)
             ->get();
 
-        return response()->json([
+        $data = [
             'user_type' => 'dealer',
             'stats' => $stats,
-            'recent_orders' => $recentOrders,
-        ]);
+            'recent_orders' => $recentOrders->toArray(),
+        ];
+
+        return $this->successResponse($data, 'DASHBOARD DATA RETRIEVED SUCCESSFULLY');
     }
 }

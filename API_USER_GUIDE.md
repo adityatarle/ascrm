@@ -1,99 +1,174 @@
 # API User Guide - Complete Reference
 
-A comprehensive guide to using the AgriSales CRM API. This API supports multiple user types with role-based access control.
+This guide explains how to use the HTTP APIs exposed by this project. The API supports **multiple user types** with role-based access control.
 
-## 📋 Table of Contents
+## Table of Contents
 
-1. [Quick Start](#quick-start)
-2. [Authentication](#authentication)
-3. [Base URL & Headers](#base-url--headers)
-4. [User Types & Permissions](#user-types--permissions)
-5. [API Endpoints](#api-endpoints)
-   - [Authentication](#auth-apis)
-   - [Dashboard](#dashboard-apis)
-   - [Banners](#banner-apis)
-   - [Crops](#crop-apis)
-   - [Products](#product-apis)
-   - [Orders](#order-apis)
-   - [Cart](#cart-apis)
-   - [Dealers](#dealer-apis)
-   - [Dispatches](#dispatch-apis)
-   - [Payments](#payment-apis)
-   - [Reports](#report-apis)
-   - [User Profile](#user-profile-apis)
+1. [Default Login Credentials](#default-login-credentials)
+2. [Base URL & Headers](#base-url--headers)
+3. [Authentication](#authentication)
+4. [User Types & Dashboard Routing](#user-types--dashboard-routing)
+5. [API Endpoints by Category](#api-endpoints-by-category)
+   - [Auth APIs](#auth-apis)
+   - [Dashboard APIs](#dashboard-apis)
+   - [User Profile APIs](#user-profile-apis)
+   - [Dealer APIs](#dealer-apis)
+   - [Product APIs](#product-apis)
+   - [Order APIs](#order-apis)
+   - [Dispatch APIs](#dispatch-apis)
+   - [Payment APIs](#payment-apis)
+   - [Report APIs](#report-apis)
 6. [Error Handling](#error-handling)
-7. [Quick Reference](#quick-reference)
 
 ---
 
-## 🚀 Quick Start
+## Default Login Credentials
 
-### 1. Login (Simplified)
+These credentials are created by `php artisan db:seed` (see `database/seeders/*`).
 
-Just send mobile number and password. The system automatically detects if you're a User or Dealer.
+**Important**: Do not use these in production. Change passwords immediately in any real environment.
 
-```bash
-curl -X POST "http://localhost/agrosalescrm/public/api/login" \
-  -H "Accept: application/json" \
-  -H "Content-Type: application/json" \
-  -d '{
-      "mobile": "9876543210",
-      "password": "password"
-  }'
+### Organizations (for `organization_id`)
+
+The API login may require `organization_id` depending on user type. After a fresh migrate+seed, these are typically:
+
+| organization_id | Organization | GSTIN |
+|---:|---|---|
+| 1 | AgriChemTech Maharashtra Pvt Ltd | 27AABCU9601R1ZM |
+| 2 | AgriChemTech Gujarat Industries | 24AABCU9601R1ZN |
+
+If your IDs differ, confirm in DB:
+
+```sql
+SELECT id, name, gstin FROM organizations ORDER BY id;
 ```
 
-**Response:**
-```json
-{
-  "user_type": "dealer",
-  "dealer": { /* dealer info */ },
-  "organization": { /* organization info */ },
-  "roles": ["dealer"],
-  "permissions": ["view_orders", "create_orders"],
-  "token": "1|xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
-}
-```
+### Web App Users (for API login with `user_type=user`)
 
-### 2. Use the Token
+Password for all seeded web users: **`password`**
 
-Add the token to all subsequent requests:
+| Role | Org | Mobile | Password | Access Level |
+|---|---:|---|---|---|
+| admin | 1 | 9876543210 | password | Full access to all APIs |
+| accountant | 1 | 9876543211 | password | Payments, Reports, Orders (view) |
+| sales_officer | 2 | 9876543212 | password | Orders, Dealers, Products |
+| dispatch_officer | 2 | 9876543213 | password | Dispatches, Orders (view) |
+
+### Dealers (for API login with `user_type=dealer` or default)
+
+Password for all seeded dealers: **`password`**
+
+Use any valid `organization_id` (commonly `1` after seeding).
+
+| Dealer | Mobile | Password |
+|---|---|---|
+| Mumbai Agro Traders | 9876543210 | password |
+| Pune Farm Supplies | 9876543211 | password |
+| Ahmedabad Crop Care | 9876543212 | password |
+| Surat Agri Solutions | 9876543213 | password |
+| Bangalore Green Fields | 9876543214 | password |
+| Chennai Harvest Mart | 9876543215 | password |
+
+---
+
+## Base URL & Headers
+
+### Base URL
+
+All endpoints below are under Laravel's default `/api` prefix.
+
+Set your base URL depending on where the app is running:
+
+- **Artisan dev server**: `http://127.0.0.1:8000`
+- **XAMPP** (typical): `http://localhost/agrosalescrm/public`
+
+So the full URL looks like: `{BASE_URL}/api/...`
+
+### Request Headers
+
+For JSON APIs, always send:
+
+- **Accept**: `application/json`
+- **Content-Type**: `application/json`
+
+For authenticated endpoints, also send:
+
+- **Authorization**: `Bearer {token}`
+
+Example:
 
 ```bash
-curl "http://localhost/agrosalescrm/public/api/dashboard" \
+curl "{BASE_URL}/api/dashboard" \
   -H "Accept: application/json" \
   -H "Authorization: Bearer 1|xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 ```
 
-### 3. Check User Type
-
-After login, check `user_type` to route to the correct dashboard:
-- `"dealer"` → Dealer dashboard
-- `"user"` → Check `roles` array for specific role (admin, accountant, sales_officer, dispatch_officer)
-
 ---
 
-## 🔐 Authentication
+## Authentication
 
-### Login
+### Unified Login API
 
-**Endpoint:** `POST /api/login` (Public - No authentication required)
+The login endpoint supports **both Users and Dealers**. It returns `user_type` and `roles` to help your app route users to the correct dashboard.
 
-**Request Body:**
+**Endpoint**: `POST /api/login` (Public)
+
+**Request Body**
+
+For **Dealer** login (default or explicit):
+
 ```json
 {
   "mobile": "9876543210",
-  "password": "password"
+  "password": "password",
+  "organization_id": 1,
+  "user_type": "dealer"
 }
 ```
 
-**What happens:**
-- System automatically detects if mobile belongs to a User or Dealer
-- For Dealers: Organization is automatically determined from their order history
-- For Users: Organization comes from their user record
+For **User** login (admin/accountant/sales/dispatch):
 
-**Success Response (200):**
+```json
+{
+  "mobile": "9876543210",
+  "password": "password",
+  "organization_id": 1,
+  "user_type": "user"
+}
+```
 
-*For Dealers:*
+**Note**: `user_type` is optional. If omitted, defaults to `"dealer"` for backward compatibility. `organization_id` is required for dealers, optional for users (but recommended).
+
+**cURL Example (Dealer)**
+
+```bash
+curl -X POST "{BASE_URL}/api/login" \
+  -H "Accept: application/json" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "mobile": "9876543210",
+    "password": "password",
+    "organization_id": 1,
+    "user_type": "dealer"
+  }'
+```
+
+**cURL Example (User)**
+
+```bash
+curl -X POST "{BASE_URL}/api/login" \
+  -H "Accept: application/json" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "mobile": "9876543210",
+    "password": "password",
+    "organization_id": 1,
+    "user_type": "user"
+  }'
+```
+
+**Success Response (200) - Dealer**
+
 ```json
 {
   "user_type": "dealer",
@@ -104,7 +179,7 @@ After login, check `user_type` to route to the correct dashboard:
     "email": "mumbai@agrotraders.com",
     "state": { "id": 1, "name": "Maharashtra", "code": "MH" },
     "city": { "id": 1, "name": "Mumbai" },
-    "zone": { "id": 1, "name": "Zone 1" }
+    "zone": { "id": 1, "name": "Zone 1", "code": "MH-Z1" }
   },
   "organization": {
     "id": 1,
@@ -116,7 +191,8 @@ After login, check `user_type` to route to the correct dashboard:
 }
 ```
 
-*For Users:*
+**Success Response (200) - User**
+
 ```json
 {
   "user_type": "user",
@@ -133,49 +209,43 @@ After login, check `user_type` to route to the correct dashboard:
   },
   "roles": ["admin"],
   "permissions": [
-    "manage_users", "manage_products", "manage_dealers", 
-    "manage_orders", "manage_dispatches", "manage_payments", 
-    "view_reports", "manage_settings"
+    "manage_users", "manage_products", "manage_dealers", "manage_orders",
+    "manage_dispatches", "manage_payments", "view_reports", "manage_settings"
   ],
   "token": "1|xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 }
 ```
 
-**Error Response (422):**
-```json
-{
-  "message": "The provided credentials are incorrect.",
-  "errors": {
-    "mobile": ["The provided credentials are incorrect."]
-  }
-}
-```
+### Get Current User/Dealer Info
 
-### Get Current User Info
+**Endpoint**: `GET /api/me` (Bearer token required)
 
-**Endpoint:** `GET /api/me` (Requires authentication)
+Returns the same structure as login response, useful for checking authentication status and user type.
 
-Returns the same structure as login response. Useful for checking authentication status.
+**cURL**
 
 ```bash
-curl "http://localhost/agrosalescrm/public/api/me" \
+curl "{BASE_URL}/api/me" \
   -H "Accept: application/json" \
-  -H "Authorization: Bearer {token}"
+  -H "Authorization: Bearer 1|xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 ```
 
 ### Logout
 
-**Endpoint:** `POST /api/logout` (Requires authentication)
+**Endpoint**: `POST /api/logout` (Bearer token required)
 
 Invalidates the current token.
 
+**cURL**
+
 ```bash
-curl -X POST "http://localhost/agrosalescrm/public/api/logout" \
+curl -X POST "{BASE_URL}/api/logout" \
   -H "Accept: application/json" \
-  -H "Authorization: Bearer {token}"
+  -H "Authorization: Bearer 1|xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 ```
 
-**Response:**
+**Success Response (200)**
+
 ```json
 {
   "message": "Logged out successfully"
@@ -184,74 +254,74 @@ curl -X POST "http://localhost/agrosalescrm/public/api/logout" \
 
 ---
 
-## 🌐 Base URL & Headers
+## User Types & Dashboard Routing
 
-### Base URL
-
-Set your base URL based on your environment:
-
-- **Local Development (Artisan):** `http://127.0.0.1:8000`
-- **XAMPP:** `http://localhost/agrosalescrm/public`
-- **Production:** Your domain URL
-
-All endpoints are under `/api` prefix: `{BASE_URL}/api/...`
-
-### Required Headers
-
-**For all requests:**
-```
-Accept: application/json
-Content-Type: application/json
-```
-
-**For authenticated requests:**
-```
-Authorization: Bearer {token}
-```
-
----
-
-## 👥 User Types & Permissions
+After login, check the `user_type` and `roles` fields to route users to the correct dashboard:
 
 ### User Type: `"dealer"`
 
-- **Access:** Own orders, profile management, create orders, view products
-- **Dashboard:** Dealer dashboard
-- **Permissions:** `view_orders`, `create_orders`, `view_profile`, `update_profile`
+- **Dashboard**: Dealer dashboard (orders, profile)
+- **Access**: Own orders, profile management, create orders
+- **Redirect to**: `/dealer-dashboard` or similar
 
 ### User Type: `"user"` with Roles
 
 #### Role: `"admin"`
-- **Access:** Full access to all APIs
-- **Dashboard:** Admin dashboard
-- **Permissions:** All permissions
+
+- **Dashboard**: Admin dashboard (full access)
+- **Access**: All APIs (users, products, dealers, orders, dispatches, payments, reports)
+- **Redirect to**: `/admin-dashboard`
 
 #### Role: `"accountant"`
-- **Access:** Payments, Reports, Orders (view), Dealers (view)
-- **Dashboard:** Accountant dashboard
-- **Permissions:** `view_orders`, `view_dealers`, `manage_payments`, `view_reports`
+
+- **Dashboard**: Accountant dashboard (payments, reports)
+- **Access**: Payments (view/create), Reports, Orders (view), Dealers (view)
+- **Redirect to**: `/accountant-dashboard`
 
 #### Role: `"sales_officer"`
-- **Access:** Orders, Dealers, Products, Dispatches (view)
-- **Dashboard:** Sales dashboard
-- **Permissions:** `manage_orders`, `manage_dealers`, `view_products`, `view_dispatches`
+
+- **Dashboard**: Sales dashboard (orders, dealers, products)
+- **Access**: Orders (manage), Dealers (manage), Products (manage), Dispatches (view)
+- **Redirect to**: `/sales-dashboard`
 
 #### Role: `"dispatch_officer"`
-- **Access:** Dispatches, Orders (view)
-- **Dashboard:** Dispatch dashboard
-- **Permissions:** `manage_dispatches`, `view_orders`
+
+- **Dashboard**: Dispatch dashboard (dispatches, orders)
+- **Access**: Dispatches (manage), Orders (view)
+- **Redirect to**: `/dispatch-dashboard`
+
+**Example Routing Logic (JavaScript/Pseudo-code)**
+
+```javascript
+const response = await login(credentials);
+const { user_type, roles, permissions } = response;
+
+if (user_type === 'dealer') {
+  navigateTo('/dealer-dashboard');
+} else if (user_type === 'user') {
+  if (roles.includes('admin')) {
+    navigateTo('/admin-dashboard');
+  } else if (roles.includes('accountant')) {
+    navigateTo('/accountant-dashboard');
+  } else if (roles.includes('sales_officer')) {
+    navigateTo('/sales-dashboard');
+  } else if (roles.includes('dispatch_officer')) {
+    navigateTo('/dispatch-dashboard');
+  }
+}
+```
 
 ---
 
-## 📡 API Endpoints
+## API Endpoints by Category
 
 ### Auth APIs
 
-| Method | Endpoint | Auth | Description |
-|--------|----------|------|-------------|
-| POST | `/api/login` | No | Login (auto-detects user type) |
-| POST | `/api/logout` | Yes | Logout |
-| GET | `/api/me` | Yes | Get current user/dealer info |
+| Method | Endpoint | Auth Required | User Type | Description |
+|--------|----------|----------------|-----------|-------------|
+| POST | `/api/login` | No | All | Unified login for Users and Dealers |
+| POST | `/api/logout` | Yes | All | Logout and invalidate token |
+| GET | `/api/me` | Yes | All | Get current authenticated user/dealer info |
 
 ---
 
@@ -259,11 +329,20 @@ Authorization: Bearer {token}
 
 #### Get Dashboard Data
 
-**Endpoint:** `GET /api/dashboard` (Requires authentication)
+**Endpoint**: `GET /api/dashboard` (Bearer token required)
 
-Returns statistics and recent data based on user type and role.
+Returns dashboard statistics and recent data based on user type and role.
 
-**Response for Admin:**
+**cURL**
+
+```bash
+curl "{BASE_URL}/api/dashboard" \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer 1|xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+```
+
+**Success Response (200) - User (Admin)**
+
 ```json
 {
   "user_type": "user",
@@ -277,15 +356,28 @@ Returns statistics and recent data based on user type and role.
       "delivered": 115,
       "total_amount": 2500000.00
     },
-    "dispatches": { "total": 120, "pending": 5, "dispatched": 15 },
-    "payments": { "total": 200, "total_amount": 2400000.00 },
-    "dealers": { "total": 50, "active": 45 }
+    "dispatches": {
+      "total": 120,
+      "pending": 5,
+      "dispatched": 15,
+      "in_transit": 10,
+      "delivered": 90
+    },
+    "payments": {
+      "total": 200,
+      "total_amount": 2400000.00
+    },
+    "dealers": {
+      "total": 50,
+      "active": 45
+    }
   },
   "recent_orders": [ /* 5 most recent orders */ ]
 }
 ```
 
-**Response for Dealer:**
+**Success Response (200) - Dealer**
+
 ```json
 {
   "user_type": "dealer",
@@ -303,385 +395,82 @@ Returns statistics and recent data based on user type and role.
 }
 ```
 
----
-
-### Crop APIs
-
-#### Get All Crops with Products
-
-**Endpoint:** `GET /api/crops` (Requires authentication)
-
-Returns all active crops with their assigned products.
-
-**Query Parameters:**
-- `search` (optional): Search crops by name
-
-**Response:**
-```json
-{
-  "crops": [
-    {
-      "id": 1,
-      "unique_id": "CROP-ABC12345",
-      "name": "Wheat",
-      "image": "crops/wheat.jpg",
-      "description": "Wheat crop products",
-      "is_active": true,
-      "products": [
-        {
-          "id": 1,
-          "name": "Wheat Fertilizer",
-          "code": "FERT-W001",
-          "description": "Fertilizer for wheat crops",
-          "contains_description": "NPK 19:19:19",
-          "base_price": 500.00,
-          "unit_per_case": 12.00,
-          "calculated_rate": 520.00,
-          "category": {
-            "id": 2,
-            "name": "Fertilizers"
-          },
-          "unit": { "id": 1, "name": "Kg" }
-        }
-      ]
-    }
-  ]
-}
-```
-
-#### Get Specific Crop
-
-**Endpoint:** `GET /api/crops/{id}` (Requires authentication)
-
-Returns a single crop with all its products.
-
-#### Get Products by Crop
-
-**Endpoint:** `GET /api/crops/{id}/products` (Requires authentication)
-
-Returns paginated list of products for a specific crop.
-
-**Query Parameters:**
-- `search` (optional): Search products by name
-- `per_page` (optional): Items per page (default: 15)
-
-**Response:**
-```json
-{
-  "current_page": 1,
-  "data": [ /* products */ ],
-  "per_page": 15,
-  "total": 50
-}
-```
+**Access Control**:
+- **Users**: Returns stats based on role (admin sees all, accountant sees payments/reports, etc.)
+- **Dealers**: Returns only their own order stats
 
 ---
 
-### Banner APIs
+### User Profile APIs
 
-#### Get Active Banners
+#### Get User Profile
 
-**Endpoint:** `GET /api/banners` (Public - No authentication required)
+**Endpoint**: `GET /api/users/profile` (Bearer token required, Users only)
 
-Returns all active banners that are currently within their date range (if set).
+**cURL**
 
-**Query Parameters:**
-- `include_inactive` (optional): Include inactive banners (admin only, requires authentication)
-
-**Response:**
-```json
-{
-  "banners": [
-    {
-      "id": 1,
-      "title": "Summer Sale",
-      "description": "Special offers this summer",
-      "image": "banners/summer-sale.jpg",
-      "image_url": "http://localhost/storage/banners/summer-sale.jpg",
-      "link": "https://example.com/sale",
-      "sort_order": 1,
-      "is_active": true,
-      "start_date": "2026-01-01",
-      "end_date": "2026-03-31"
-    }
-  ]
-}
+```bash
+curl "{BASE_URL}/api/users/profile" \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer 1|xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
 ```
 
-**Note:** Banners are automatically filtered to show only:
-- Active banners (`is_active = true`)
-- Banners within their date range (if start_date/end_date are set)
-- Ordered by `sort_order`
+**Success Response (200)**
 
-#### Get Specific Banner
-
-**Endpoint:** `GET /api/banners/{id}` (Public - No authentication required)
-
-Returns a single banner with full image URL.
-
----
-
-### Product APIs
-
-#### Get Product Categories
-
-**Endpoint:** `GET /api/products/categories` (Requires authentication)
-
-**Response:**
 ```json
 {
-  "categories": [
-    { "id": 1, "name": "Pesticides", "slug": "pesticides" },
-    { "id": 2, "name": "Fertilizers", "slug": "fertilizers" },
-    { "id": 3, "name": "Seeds", "slug": "seeds" }
-  ]
-}
-```
-
-#### List Products
-
-**Endpoint:** `GET /api/products` (Requires authentication)
-
-**Query Parameters:**
-- `search` (optional): Search by product name
-- `category_id` (optional): Filter products by category ID
-- `crop_id` (optional): Filter products by crop ID
-- `per_page` (optional): Items per page (default: 15)
-
-**Response:**
-```json
-{
-  "current_page": 1,
-  "data": [
-    {
-      "id": 1,
-      "name": "Pesticide A",
-      "code": "PEST-A",
-      "description": "Product description",
-      "contains_description": "Contains active ingredients...",
-      "base_price": 500.00,
-      "unit_per_case": 12.00,
-      "calculated_rate": 520.00,
-      "category": {
-        "id": 1,
-        "name": "Pesticides",
-        "image": "categories/pesticides.jpg"
-      },
-      "unit": { "id": 1, "name": "Kg" }
-    }
-  ],
-  "per_page": 15,
-  "total": 100
-}
-```
-
-**Access Control:**
-- **Users:** See products from their organization
-- **Dealers:** See all active products with state-specific rates
-
-**Product Fields:**
-- `id`: Product ID
-- `name`: Product name
-- `code`: Product code
-- `description`: Product description
-- `contains_description`: What the product contains (ingredients, components, etc.)
-- `category`: Category object (if assigned)
-- `base_price`: Base price per unit
-- `unit_per_case`: Number of units in one case/pack
-- `unit`: Unit object (Kg, Liter, etc.)
-- `calculated_rate`: State-specific rate (for dealers)
-- `stateRates`: Array of state-specific rates
-
-#### Get Product Details
-
-**Endpoint:** `GET /api/products/{id}` (Requires authentication)
-
-**Response:**
-```json
-{
-  "product": {
+  "user": {
     "id": 1,
-    "name": "Pesticide A",
-    "code": "PEST-A",
-    "description": "Product description",
-    "contains_description": "Contains active ingredients...",
-    "base_price": 500.00,
-    "unit_per_case": 12.00,
-    "gst_rate": 18.00,
-    "category": {
-      "id": 1,
-      "name": "Pesticides",
-      "image": "categories/pesticides.jpg"
-    },
-    "unit": { "id": 1, "name": "Kg" },
-    "stateRates": [
-      {
-        "id": 1,
-        "state_id": 1,
-        "rate": 520.00,
-        "state": { "name": "Maharashtra" }
-      }
-    ]
-  }
+    "name": "Admin User",
+    "email": "admin@aglichemtech-mh.com",
+    "mobile": "9876543210",
+    "organization_id": 1
+  },
+  "organization": { /* organization details */ },
+  "roles": ["admin"]
 }
 ```
 
-#### Create Product
+#### Update User Profile
 
-**Endpoint:** `POST /api/products` (Requires authentication, Roles: admin/sales_officer)
+**Endpoint**: `PUT /api/users/profile` (Bearer token required, Users only)
 
-**Request:**
+**cURL**
+
+```bash
+curl -X PUT "{BASE_URL}/api/users/profile" \
+  -H "Accept: application/json" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer 1|xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" \
+  -d '{
+    "name": "Updated Name",
+    "email": "newemail@example.com",
+    "mobile": "9876543219"
+  }'
+```
+
+**Request Body** (all fields optional)
+
 ```json
 {
-  "name": "New Product",
-  "code": "PROD-001",
-  "description": "Product description",
-  "contains_description": "Contains active ingredients...",
-  "category_id": 1,
-  "base_price": 1000.00,
-  "unit_per_case": 12.00,
-  "unit_id": 1,
-  "gst_rate": 18.00,
-  "is_active": true
+  "name": "Updated Name",
+  "email": "newemail@example.com",
+  "mobile": "9876543219",
+  "address": "New Address",
+  "city": "Mumbai",
+  "state": "Maharashtra",
+  "pincode": "400001"
 }
 ```
 
-**Request Fields:**
-- `name` (required): Product name
-- `code` (optional): Product code (must be unique)
-- `description` (optional): Product description
-- `contains_description` (optional): What the product contains
-- `category_id` (optional): Category ID
-- `base_price` (required): Base price
-- `unit_per_case` (optional): Number of units per case/pack
-- `unit_id` (required): Unit ID
-- `gst_rate` (required): GST rate (0-100)
-- `is_active` (optional): Active status (default: true)
+**Success Response (200)**
 
-#### Update Product
-
-**Endpoint:** `PUT /api/products/{id}` (Requires authentication, Roles: admin/sales_officer)
-
-#### Delete Product
-
-**Endpoint:** `DELETE /api/products/{id}` (Requires authentication, Role: admin)
-
----
-
-### Order APIs
-
-#### Create Order
-
-**Endpoint:** `POST /api/orders` (Requires authentication, Dealers only)
-
-**Request:**
 ```json
 {
-  "items": [
-    {
-      "product_id": 1,
-      "product_size_id": null,
-      "quantity": 10,
-      "rate": 500.00
-    }
-  ],
-  "notes": "Please deliver by Friday"
+  "message": "Profile updated successfully",
+  "user": { /* updated user */ }
 }
 ```
-
-**Response:**
-```json
-{
-  "message": "Order created successfully",
-  "order": {
-    "id": 1,
-    "order_number": "ORD-2026-001",
-    "subtotal": 5000.00,
-    "grand_total": 5900.00,
-    "status": "pending"
-  }
-}
-```
-
-#### List Orders
-
-**Endpoint:** `GET /api/orders` (Requires authentication)
-
-**Query Parameters:**
-- `status` (optional): Filter by status (pending, confirmed, dispatched, delivered, cancelled)
-- `per_page` (optional): Items per page (default: 15)
-
-**Access Control:**
-- **Dealers:** See only their own orders
-- **Users:** See orders based on role and organization
-
-#### Get Order Details
-
-**Endpoint:** `GET /api/orders/{id}` (Requires authentication)
-
-#### Update Order
-
-**Endpoint:** `PUT /api/orders/{id}` (Requires authentication, Roles: admin/sales_officer)
-
-#### Delete Order
-
-**Endpoint:** `DELETE /api/orders/{id}` (Requires authentication, Role: admin)
-
----
-
-### Cart APIs
-
-#### Get Cart Items
-
-**Endpoint:** `GET /api/cart` (Requires authentication, Dealers only)
-
-**Response:**
-```json
-{
-  "cart": [
-    {
-      "id": 1,
-      "product": { "id": 1, "name": "Product A" },
-      "quantity": 5,
-      "rate": 500.00,
-      "subtotal": 2500.00
-    }
-  ],
-  "total": 2500.00
-}
-```
-
-#### Add to Cart
-
-**Endpoint:** `POST /api/cart` (Requires authentication, Dealers only)
-
-**Request:**
-```json
-{
-  "product_id": 1,
-  "product_size_id": null,
-  "quantity": 5
-}
-```
-
-#### Update Cart Item
-
-**Endpoint:** `PUT /api/cart/{id}` (Requires authentication, Dealers only)
-
-**Request:**
-```json
-{
-  "quantity": 10
-}
-```
-
-#### Remove from Cart
-
-**Endpoint:** `DELETE /api/cart/{id}` (Requires authentication, Dealers only)
-
-#### Clear Cart
-
-**Endpoint:** `DELETE /api/cart` (Requires authentication, Dealers only)
 
 ---
 
@@ -689,9 +478,30 @@ Returns a single banner with full image URL.
 
 #### Register Dealer
 
-**Endpoint:** `POST /api/dealers/register` (Public)
+**Endpoint**: `POST /api/dealers/register` (Public)
 
-**Request:**
+**cURL**
+
+```bash
+curl -X POST "{BASE_URL}/api/dealers/register" \
+  -H "Accept: application/json" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "New Dealer",
+    "mobile": "9999999999",
+    "email": "dealer@example.com",
+    "gstin": "27ABCDE1234F1Z5",
+    "address": "Address line",
+    "state_id": 1,
+    "city_id": 1,
+    "pincode": "400001",
+    "password": "secret123",
+    "password_confirmation": "secret123"
+  }'
+```
+
+**Request Body**
+
 ```json
 {
   "name": "New Dealer",
@@ -707,21 +517,756 @@ Returns a single banner with full image URL.
 }
 ```
 
+**Notes**:
+- `password` must be **min 8 characters** and must include `password_confirmation`
+- `state_id` and `city_id` must exist in database
+- `mobile` must be unique
+- `email` must be unique (if provided)
+
+**Success Response (201)**
+
+```json
+{
+  "message": "Dealer registered successfully",
+  "dealer": { /* dealer + state/city/zone */ }
+}
+```
+
 #### Get Dealer Profile
 
-**Endpoint:** `GET /api/dealers/profile` (Requires authentication, Dealers only)
+**Endpoint**: `GET /api/dealers/profile` (Bearer token required, Dealers only)
+
+**cURL**
+
+```bash
+curl "{BASE_URL}/api/dealers/profile" \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer 1|xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+```
+
+**Success Response (200)**
+
+```json
+{
+  "dealer": {
+    "id": 1,
+    "name": "Mumbai Agro Traders",
+    "mobile": "9876543210",
+    "email": "mumbai@agrotraders.com",
+    "state": { /* state details */ },
+    "city": { /* city details */ },
+    "zone": { /* zone details */ }
+  }
+}
+```
 
 #### Update Dealer Profile
 
-**Endpoint:** `PUT /api/dealers/profile` (Requires authentication, Dealers only)
+**Endpoint**: `PUT /api/dealers/profile` (Bearer token required, Dealers only)
+
+**cURL**
+
+```bash
+curl -X PUT "{BASE_URL}/api/dealers/profile" \
+  -H "Accept: application/json" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer 1|xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" \
+  -d '{
+    "name": "Updated Name",
+    "email": "newemail@example.com",
+    "city_id": 2
+  }'
+```
+
+**Request Body** (all fields optional)
+
+```json
+{
+  "name": "Updated Name",
+  "email": "newemail@example.com",
+  "address": "New Address",
+  "city_id": 2,
+  "pincode": "400002"
+}
+```
+
+**Notes**:
+- If `city_id` is updated, the API auto-updates `zone_id` and `state_id` from that city
+- `email` must be unique (excluding current dealer)
+
+**Success Response (200)**
+
+```json
+{
+  "message": "Profile updated successfully",
+  "dealer": { /* updated dealer */ }
+}
+```
 
 #### List Dealers
 
-**Endpoint:** `GET /api/dealers` (Requires authentication, Roles: admin/sales_officer/accountant)
+**Endpoint**: `GET /api/dealers` (Bearer token required, Users: admin/sales_officer/accountant)
+
+**cURL**
+
+```bash
+curl "{BASE_URL}/api/dealers?search=mumbai&zone_id=1&is_active=1&per_page=20" \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer 1|xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+```
+
+**Query Parameters**
+
+- `search` (optional): Search by name, mobile, or email
+- `zone_id` (optional): Filter by zone
+- `state_id` (optional): Filter by state
+- `is_active` (optional): Filter by active status (1 or 0)
+- `per_page` (optional): Items per page (default: 15)
+
+**Success Response (200)** - Paginated
+
+```json
+{
+  "current_page": 1,
+  "data": [ /* dealers array */ ],
+  "per_page": 15,
+  "total": 50
+}
+```
 
 #### Get Dealer Details
 
-**Endpoint:** `GET /api/dealers/{id}` (Requires authentication, Roles: admin/sales_officer/accountant)
+**Endpoint**: `GET /api/dealers/{id}` (Bearer token required, Users: admin/sales_officer/accountant)
+
+**cURL**
+
+```bash
+curl "{BASE_URL}/api/dealers/1" \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer 1|xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+```
+
+**Success Response (200)**
+
+```json
+{
+  "dealer": { /* dealer + state/city/zone */ }
+}
+```
+
+---
+
+### Cart APIs (Dealers Only)
+
+#### Get Cart Products
+
+**Endpoint**: `GET /api/cart` (Bearer token required, Dealers only)
+
+**cURL**
+
+```bash
+curl "{BASE_URL}/api/cart" \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer 1|xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+```
+
+**Success Response (200)**
+
+```json
+{
+  "items": [
+    {
+      "id": 1,
+      "product_id": 1,
+      "quantity": 2,
+      "rate": 520.00,
+      "subtotal": 1040.00,
+      "product": {
+        "id": 1,
+        "name": "Pesticide A",
+        "code": "PEST-A",
+        "description": "Product description",
+        "base_price": 500.00,
+        "gst_rate": 18.00,
+        "unit": { "id": 1, "name": "Kg" },
+        "is_active": true
+      }
+    }
+  ],
+  "summary": {
+    "item_count": 1,
+    "total_quantity": 2,
+    "subtotal": 1040.00
+  }
+}
+```
+
+**Notes**:
+- Returns all cart items with calculated rates based on dealer's state
+- Includes product details and pricing information
+- Summary provides total count and subtotal
+
+#### Add Product to Cart
+
+**Endpoint**: `POST /api/cart` (Bearer token required, Dealers only)
+
+**cURL**
+
+```bash
+curl -X POST "{BASE_URL}/api/cart" \
+  -H "Accept: application/json" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer 1|xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" \
+  -d '{
+    "product_id": 1,
+    "quantity": 2
+  }'
+```
+
+**Request Body**
+
+```json
+{
+  "product_id": 1,
+  "quantity": 2
+}
+```
+
+**Notes**:
+- If product already exists in cart, quantity is added to existing quantity
+- Product must be active
+- `quantity` must be at least 1
+
+**Success Response (201)**
+
+```json
+{
+  "message": "Product added to cart successfully",
+  "cart_item": {
+    "id": 1,
+    "product_id": 1,
+    "quantity": 2,
+    "product": { /* product details */ }
+  }
+}
+```
+
+#### Update Cart Item Quantity
+
+**Endpoint**: `PUT /api/cart/{id}` (Bearer token required, Dealers only)
+
+**cURL**
+
+```bash
+curl -X PUT "{BASE_URL}/api/cart/1" \
+  -H "Accept: application/json" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer 1|xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" \
+  -d '{
+    "quantity": 5
+  }'
+```
+
+**Request Body**
+
+```json
+{
+  "quantity": 5
+}
+```
+
+**Success Response (200)**
+
+```json
+{
+  "message": "Cart item updated successfully",
+  "cart_item": {
+    "id": 1,
+    "product_id": 1,
+    "quantity": 5,
+    "product": { /* product details */ }
+  }
+}
+```
+
+#### Remove Product from Cart
+
+**Endpoint**: `DELETE /api/cart/{id}` (Bearer token required, Dealers only)
+
+**cURL**
+
+```bash
+curl -X DELETE "{BASE_URL}/api/cart/1" \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer 1|xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+```
+
+**Success Response (200)**
+
+```json
+{
+  "message": "Product removed from cart successfully"
+}
+```
+
+#### Clear All Cart Items
+
+**Endpoint**: `DELETE /api/cart` (Bearer token required, Dealers only)
+
+**cURL**
+
+```bash
+curl -X DELETE "{BASE_URL}/api/cart" \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer 1|xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+```
+
+**Success Response (200)**
+
+```json
+{
+  "message": "Cart cleared successfully"
+}
+```
+
+---
+
+### Product APIs
+
+#### Get Product Categories
+
+**Endpoint**: `GET /api/products/categories` (Bearer token required, All authenticated users)
+
+**cURL**
+
+```bash
+curl "{BASE_URL}/api/products/categories" \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer 1|xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+```
+
+**Success Response (200)**
+
+```json
+{
+  "categories": [
+    { "id": 1, "name": "Pesticides", "slug": "pesticides" },
+    { "id": 2, "name": "Fertilizers", "slug": "fertilizers" },
+    { "id": 3, "name": "Seeds", "slug": "seeds" },
+    { "id": 4, "name": "Tools & Equipment", "slug": "tools-equipment" },
+    { "id": 5, "name": "Other", "slug": "other" }
+  ]
+}
+```
+
+#### List Products
+
+**Endpoint**: `GET /api/products` (Bearer token required, All authenticated users)
+
+**cURL**
+
+```bash
+curl "{BASE_URL}/api/products?search=pesticide&per_page=20" \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer 1|xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+```
+
+**Query Parameters**
+
+- `search` (optional): Search by product name
+- `per_page` (optional): Items per page (default: 15)
+
+**Success Response (200)** - Paginated
+
+```json
+{
+  "current_page": 1,
+  "data": [
+    {
+      "id": 1,
+      "name": "Pesticide A",
+      "code": "PEST-A",
+      "base_price": 500.00,
+      "unit": { "id": 1, "name": "Kg" },
+      "stateRates": [ /* state-specific rates */ ]
+    }
+  ],
+  "per_page": 15,
+  "total": 100
+}
+```
+
+**Access Control**:
+- **Users**: See products from their organization
+- **Dealers**: See all active products with calculated rates based on their state
+
+#### Get Product Details
+
+**Endpoint**: `GET /api/products/{id}` (Bearer token required, All authenticated users)
+
+**cURL**
+
+```bash
+curl "{BASE_URL}/api/products/1" \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer 1|xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+```
+
+**Success Response (200)**
+
+```json
+{
+  "product": {
+    "id": 1,
+    "name": "Pesticide A",
+    "code": "PEST-A",
+    "description": "Product description",
+    "base_price": 500.00,
+    "gst_rate": 18.00,
+    "unit": { /* unit details */ },
+    "stateRates": [
+      {
+        "id": 1,
+        "state_id": 1,
+        "rate": 520.00,
+        "state": { "name": "Maharashtra" }
+      }
+    ]
+  }
+}
+```
+
+#### Create Product
+
+**Endpoint**: `POST /api/products` (Bearer token required, Users: admin/sales_officer)
+
+**cURL**
+
+```bash
+curl -X POST "{BASE_URL}/api/products" \
+  -H "Accept: application/json" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer 1|xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" \
+  -d '{
+    "name": "New Product",
+    "code": "PROD-001",
+    "description": "Product description",
+    "base_price": 1000.00,
+    "unit_id": 1,
+    "gst_rate": 18.00,
+    "is_active": true
+  }'
+```
+
+**Request Body**
+
+```json
+{
+  "name": "New Product",
+  "code": "PROD-001",
+  "description": "Product description",
+  "base_price": 1000.00,
+  "unit_id": 1,
+  "gst_rate": 18.00,
+  "is_active": true
+}
+```
+
+**Success Response (201)**
+
+```json
+{
+  "message": "Product created successfully",
+  "product": { /* created product */ }
+}
+```
+
+#### Update Product
+
+**Endpoint**: `PUT /api/products/{id}` (Bearer token required, Users: admin/sales_officer)
+
+**cURL**
+
+```bash
+curl -X PUT "{BASE_URL}/api/products/1" \
+  -H "Accept: application/json" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer 1|xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" \
+  -d '{
+    "name": "Updated Product Name",
+    "base_price": 1200.00
+  }'
+```
+
+**Request Body** (all fields optional)
+
+```json
+{
+  "name": "Updated Product Name",
+  "code": "PROD-002",
+  "description": "Updated description",
+  "base_price": 1200.00,
+  "unit_id": 2,
+  "gst_rate": 12.00,
+  "is_active": false
+}
+```
+
+**Success Response (200)**
+
+```json
+{
+  "message": "Product updated successfully",
+  "product": { /* updated product */ }
+}
+```
+
+#### Delete Product
+
+**Endpoint**: `DELETE /api/products/{id}` (Bearer token required, Users: admin only)
+
+**cURL**
+
+```bash
+curl -X DELETE "{BASE_URL}/api/products/1" \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer 1|xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+```
+
+**Success Response (200)**
+
+```json
+{
+  "message": "Product deleted successfully"
+}
+```
+
+---
+
+### Order APIs
+
+#### Create Order (Place Order)
+
+**Endpoint**: `POST /api/orders` (Bearer token required, Dealers only)
+
+**Option 1: Place Order from Cart**
+
+**cURL**
+
+```bash
+curl -X POST "{BASE_URL}/api/orders" \
+  -H "Accept: application/json" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer 1|xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" \
+  -d '{
+    "use_cart": true
+  }'
+```
+
+**Request Body**
+
+```json
+{
+  "use_cart": true
+}
+```
+
+**Notes**: 
+- Uses all items from dealer's cart
+- Cart is automatically cleared after order is created
+- Returns 422 if cart is empty
+
+**Option 2: Place Order with Direct Items**
+
+**cURL**
+
+```bash
+curl -X POST "{BASE_URL}/api/orders" \
+  -H "Accept: application/json" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer 1|xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" \
+  -d '{
+    "cart_items": [
+      { "product_id": 1, "quantity": 2 },
+      { "product_id": 5, "quantity": 1 }
+    ]
+  }'
+```
+
+**Request Body**
+
+```json
+{
+  "cart_items": [
+    { "product_id": 1, "quantity": 2 },
+    { "product_id": 5, "quantity": 1 }
+  ]
+}
+```
+
+**Pricing Logic**:
+- For each item, rate is picked from `product_state_rates` for the dealer's `state_id` if available, otherwise `products.base_price`
+- `subtotal` = sum of `quantity × rate`
+- Order totals/taxes are calculated automatically by observers
+
+**Success Response (201)**
+
+```json
+{
+  "message": "Order created successfully",
+  "order": {
+    "id": 123,
+    "order_number": "ORD-ABC123",
+    "dealer_id": 1,
+    "subtotal": 2000.00,
+    "discount_amount": 0.00,
+    "taxable_amount": 2000.00,
+    "cgst_amount": 180.00,
+    "sgst_amount": 180.00,
+    "igst_amount": 0.00,
+    "grand_total": 2360.00,
+    "status": "pending",
+    "items": [ /* order items with products */ ],
+    "dealer": { /* dealer details */ },
+    "organization": { /* organization details */ }
+  }
+}
+```
+
+#### Order History (List Orders)
+
+**Endpoint**: `GET /api/orders` (Bearer token required, All authenticated users)
+
+**cURL**
+
+```bash
+# For Dealers
+curl "{BASE_URL}/api/orders" \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer 1|xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+
+# For Users (with filters)
+curl "{BASE_URL}/api/orders?dealer_id=1&status=pending&per_page=20" \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer 1|xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+```
+
+**Query Parameters** (for Users only)
+
+- `dealer_id` (optional): Filter by dealer
+- `status` (optional): Filter by status (pending, confirmed, dispatched, delivered, cancelled)
+- `per_page` (optional): Items per page (default: 15)
+
+**Access Control**:
+- **Dealers**: See only their own orders
+- **Users** (admin/sales_officer/accountant): See orders from their organization
+
+**Success Response (200)** - Paginated
+
+```json
+{
+  "current_page": 1,
+  "data": [ /* orders array */ ],
+  "per_page": 15,
+  "total": 50
+}
+```
+
+#### Get Order Details
+
+**Endpoint**: `GET /api/orders/{id}` (Bearer token required, All authenticated users)
+
+**cURL**
+
+```bash
+curl "{BASE_URL}/api/orders/123" \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer 1|xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+```
+
+**Success Response (200)**
+
+```json
+{
+  "order": {
+    "id": 123,
+    "order_number": "ORD-ABC123",
+    "dealer": { /* dealer details */ },
+    "items": [
+      {
+        "id": 1,
+        "product_id": 1,
+        "quantity": 2,
+        "rate": 1000.00,
+        "subtotal": 2000.00,
+        "product": { /* product details */ }
+      }
+    ],
+    "dispatches": [ /* dispatches array */ ],
+    "payments": [ /* payments array */ ],
+    "organization": { /* organization details */ }
+  }
+}
+```
+
+#### Update Order
+
+**Endpoint**: `PUT /api/orders/{id}` (Bearer token required, Users: admin/sales_officer)
+
+**cURL**
+
+```bash
+curl -X PUT "{BASE_URL}/api/orders/123" \
+  -H "Accept: application/json" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer 1|xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" \
+  -d '{
+    "status": "confirmed"
+  }'
+```
+
+**Request Body**
+
+```json
+{
+  "status": "confirmed"
+}
+```
+
+**Allowed Status Values**: `pending`, `confirmed`, `cancelled`
+
+**Notes**: Only pending orders can be updated.
+
+**Success Response (200)**
+
+```json
+{
+  "message": "Order updated successfully",
+  "order": { /* updated order */ }
+}
+```
+
+#### Delete Order
+
+**Endpoint**: `DELETE /api/orders/{id}` (Bearer token required, Users: admin only)
+
+**cURL**
+
+```bash
+curl -X DELETE "{BASE_URL}/api/orders/123" \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer 1|xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+```
+
+**Notes**: Only pending orders can be deleted.
+
+**Success Response (200)**
+
+```json
+{
+  "message": "Order deleted successfully"
+}
+```
 
 ---
 
@@ -729,32 +1274,132 @@ Returns a single banner with full image URL.
 
 #### Create Dispatch
 
-**Endpoint:** `POST /api/dispatches` (Requires authentication, Roles: admin/dispatch_officer)
+**Endpoint**: `POST /api/dispatches` (Bearer token required, Users: admin/dispatch_officer)
 
-**Request:**
+**cURL**
+
+```bash
+curl -X POST "{BASE_URL}/api/dispatches" \
+  -H "Accept: application/json" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer 1|xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" \
+  -d '{
+    "order_id": 123,
+    "lr_number": "LR-001",
+    "transporter_name": "ABC Logistics",
+    "vehicle_number": "MH12AB1234",
+    "dispatched_at": "2026-01-17 10:30:00"
+  }'
+```
+
+**Request Body**
+
 ```json
 {
-  "order_id": 1,
-  "dispatched_items": [
-    {
-      "order_item_id": 1,
-      "quantity": 10
-    }
-  ],
-  "dispatch_date": "2026-01-17",
-  "tracking_number": "TRACK123",
-  "carrier": "Fast Delivery",
-  "notes": "Handle with care"
+  "order_id": 123,
+  "lr_number": "LR-001",
+  "transporter_name": "ABC Logistics",
+  "vehicle_number": "MH12AB1234",
+  "dispatched_at": "2026-01-17 10:30:00"
 }
 ```
 
-#### Get Order Dispatches
+**Notes**:
+- `dispatched_at` is optional (defaults to current time)
+- If order status is `cancelled`, returns 422
+- On success, dispatch status is set to `dispatched`
+- If order is `pending` or `confirmed`, order status is updated to `dispatched`
 
-**Endpoint:** `GET /api/orders/{orderId}/dispatches` (Requires authentication)
+**Success Response (201)**
+
+```json
+{
+  "message": "Dispatch created successfully",
+  "dispatch": {
+    "id": 10,
+    "dispatch_number": "DISP-ABC123",
+    "order_id": 123,
+    "lr_number": "LR-001",
+    "transporter_name": "ABC Logistics",
+    "vehicle_number": "MH12AB1234",
+    "status": "dispatched",
+    "order": { /* order with items */ }
+  }
+}
+```
+
+#### List Dispatches for Order
+
+**Endpoint**: `GET /api/orders/{orderId}/dispatches` (Bearer token required, All authenticated users)
+
+**cURL**
+
+```bash
+curl "{BASE_URL}/api/orders/123/dispatches" \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer 1|xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+```
+
+**Access Control**:
+- **Dealers**: Can see dispatches for their own orders
+- **Users** (admin/dispatch_officer/sales_officer): Can see dispatches for orders in their organization
+
+**Success Response (200)**
+
+```json
+{
+  "dispatches": [
+    {
+      "id": 10,
+      "dispatch_number": "DISP-ABC123",
+      "lr_number": "LR-001",
+      "status": "dispatched",
+      "dispatched_at": "2026-01-17T10:30:00.000000Z"
+    }
+  ]
+}
+```
 
 #### Update Dispatch
 
-**Endpoint:** `PUT /api/dispatches/{id}` (Requires authentication, Roles: admin/dispatch_officer)
+**Endpoint**: `PUT /api/dispatches/{id}` (Bearer token required, Users: admin/dispatch_officer)
+
+**cURL**
+
+```bash
+curl -X PUT "{BASE_URL}/api/dispatches/10" \
+  -H "Accept: application/json" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer 1|xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" \
+  -d '{
+    "status": "in_transit",
+    "lr_number": "LR-002"
+  }'
+```
+
+**Request Body** (all fields optional)
+
+```json
+{
+  "status": "in_transit",
+  "lr_number": "LR-002",
+  "transporter_name": "XYZ Logistics",
+  "vehicle_number": "MH12AB9999"
+}
+```
+
+**Allowed Status Values**: `pending`, `dispatched`, `in_transit`, `delivered`
+
+**Notes**: If status becomes `delivered`, the related order is updated to `delivered`.
+
+**Success Response (200)**
+
+```json
+{
+  "message": "Dispatch updated successfully",
+  "dispatch": { /* updated dispatch */ }
+}
+```
 
 ---
 
@@ -762,30 +1407,114 @@ Returns a single banner with full image URL.
 
 #### List Payments
 
-**Endpoint:** `GET /api/payments` (Requires authentication, Roles: admin/accountant)
+**Endpoint**: `GET /api/payments` (Bearer token required, Users: admin/accountant)
 
-**Query Parameters:**
+**cURL**
+
+```bash
+curl "{BASE_URL}/api/payments?order_id=123&status=completed&per_page=20" \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer 1|xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+```
+
+**Query Parameters**
+
 - `order_id` (optional): Filter by order
-- `status` (optional): Filter by status
-- `per_page` (optional): Items per page
+- `status` (optional): Filter by status (pending, completed, failed, refunded)
+- `per_page` (optional): Items per page (default: 15)
+
+**Success Response (200)** - Paginated
+
+```json
+{
+  "current_page": 1,
+  "data": [
+    {
+      "id": 1,
+      "order_id": 123,
+      "amount": 2360.00,
+      "payment_method": "bank_transfer",
+      "status": "completed",
+      "payment_date": "2026-01-17",
+      "order": { /* order with dealer */ }
+    }
+  ],
+  "per_page": 15,
+  "total": 50
+}
+```
 
 #### Get Payment Details
 
-**Endpoint:** `GET /api/payments/{id}` (Requires authentication, Roles: admin/accountant)
+**Endpoint**: `GET /api/payments/{id}` (Bearer token required, Users: admin/accountant)
+
+**cURL**
+
+```bash
+curl "{BASE_URL}/api/payments/1" \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer 1|xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+```
+
+**Success Response (200)**
+
+```json
+{
+  "payment": {
+    "id": 1,
+    "order_id": 123,
+    "amount": 2360.00,
+    "payment_method": "bank_transfer",
+    "status": "completed",
+    "payment_date": "2026-01-17",
+    "reference_number": "TXN123456",
+    "order": { /* order with items and dealer */ }
+  }
+}
+```
 
 #### Create Payment
 
-**Endpoint:** `POST /api/payments` (Requires authentication, Roles: admin/accountant)
+**Endpoint**: `POST /api/payments` (Bearer token required, Users: admin/accountant)
 
-**Request:**
+**cURL**
+
+```bash
+curl -X POST "{BASE_URL}/api/payments" \
+  -H "Accept: application/json" \
+  -H "Content-Type: application/json" \
+  -H "Authorization: Bearer 1|xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" \
+  -d '{
+    "order_id": 123,
+    "amount": 2360.00,
+    "payment_method": "bank_transfer",
+    "payment_date": "2026-01-17",
+    "reference_number": "TXN123456",
+    "notes": "Payment received"
+  }'
+```
+
+**Request Body**
+
 ```json
 {
-  "order_id": 1,
-  "amount": 5000.00,
+  "order_id": 123,
+  "amount": 2360.00,
   "payment_method": "bank_transfer",
   "payment_date": "2026-01-17",
   "reference_number": "TXN123456",
   "notes": "Payment received"
+}
+```
+
+**Payment Methods**: `cash`, `bank_transfer`, `cheque`, `online`
+
+**Success Response (201)**
+
+```json
+{
+  "message": "Payment created successfully",
+  "payment": { /* created payment */ }
 }
 ```
 
@@ -795,59 +1524,97 @@ Returns a single banner with full image URL.
 
 #### Sales Report
 
-**Endpoint:** `GET /api/reports/sales` (Requires authentication, Roles: admin/accountant)
+**Endpoint**: `GET /api/reports/sales` (Bearer token required, Users: admin/accountant)
 
-**Query Parameters:**
-- `start_date` (optional): Start date (YYYY-MM-DD)
-- `end_date` (optional): End date (YYYY-MM-DD)
-- `group_by` (optional): day, week, month, year
+**cURL**
+
+```bash
+curl "{BASE_URL}/api/reports/sales?start_date=2026-01-01&end_date=2026-01-31" \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer 1|xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+```
+
+**Query Parameters**
+
+- `start_date` (optional): Start date (default: start of current month)
+- `end_date` (optional): End date (default: end of current month)
+
+**Success Response (200)**
+
+```json
+{
+  "period": {
+    "start_date": "2026-01-01",
+    "end_date": "2026-01-31"
+  },
+  "summary": {
+    "total_orders": 150,
+    "total_amount": 2500000.00,
+    "total_paid": 2400000.00,
+    "by_status": {
+      "pending": { "count": 10, "amount": 150000.00 },
+      "confirmed": { "count": 5, "amount": 75000.00 },
+      "dispatched": { "count": 20, "amount": 300000.00 },
+      "delivered": { "count": 115, "amount": 1975000.00 }
+    }
+  },
+  "orders": [ /* all orders in period */ ]
+}
+```
 
 #### Dealer Performance Report
 
-**Endpoint:** `GET /api/reports/dealer-performance` (Requires authentication, Roles: admin/sales_officer)
+**Endpoint**: `GET /api/reports/dealer-performance` (Bearer token required, Users: admin/sales_officer)
 
-**Query Parameters:**
-- `start_date` (optional): Start date
-- `end_date` (optional): End date
-- `dealer_id` (optional): Filter by dealer
+**cURL**
 
----
+```bash
+curl "{BASE_URL}/api/reports/dealer-performance?start_date=2026-01-01&end_date=2026-01-31" \
+  -H "Accept: application/json" \
+  -H "Authorization: Bearer 1|xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+```
 
-### User Profile APIs
+**Query Parameters**
 
-#### Get User Profile
+- `start_date` (optional): Start date (default: start of current month)
+- `end_date` (optional): End date (default: end of current month)
 
-**Endpoint:** `GET /api/users/profile` (Requires authentication, Users only)
+**Success Response (200)**
 
-#### Update User Profile
-
-**Endpoint:** `PUT /api/users/profile` (Requires authentication, Users only)
-
-**Request:**
 ```json
 {
-  "name": "Updated Name",
-  "email": "newemail@example.com",
-  "mobile": "9876543219"
+  "period": {
+    "start_date": "2026-01-01",
+    "end_date": "2026-01-31"
+  },
+  "dealers": [
+    {
+      "dealer_id": 1,
+      "order_count": 25,
+      "total_amount": 125000.00,
+      "dealer": { /* dealer details */ }
+    }
+  ]
 }
 ```
 
 ---
 
-## ⚠️ Error Handling
+## Error Handling
 
 ### Common HTTP Status Codes
 
-- **200 OK:** Request successful
-- **201 Created:** Resource created successfully
-- **400 Bad Request:** Invalid request data
-- **401 Unauthorized:** Missing or invalid token
-- **403 Forbidden:** Insufficient permissions
-- **404 Not Found:** Resource not found
-- **422 Unprocessable Entity:** Validation errors
-- **500 Internal Server Error:** Server error
+- **200 OK**: Request successful
+- **201 Created**: Resource created successfully
+- **401 Unauthorized**: Missing or invalid authentication token
+- **403 Forbidden**: Authenticated but not authorized (wrong role/user type)
+- **404 Not Found**: Resource not found
+- **422 Unprocessable Entity**: Validation errors
+- **500 Internal Server Error**: Server error
 
 ### Error Response Format
+
+**Validation Error (422)**
 
 ```json
 {
@@ -859,121 +1626,122 @@ Returns a single banner with full image URL.
 }
 ```
 
-### Authentication Errors
+**Unauthorized (401)**
 
-**401 Unauthorized:**
 ```json
 {
   "message": "Unauthenticated."
 }
 ```
 
-**403 Forbidden:**
+**Forbidden (403)**
+
 ```json
 {
   "message": "Forbidden"
 }
 ```
 
+**Not Found (404)**
+
+```json
+{
+  "message": "No query results for model [App\\Models\\Order] 123"
+}
+```
+
 ---
 
-## 📚 Quick Reference
+## Summary of Access Control
 
-### All Endpoints Summary
+### Dealers
+
+- ✅ Own profile (view/update)
+- ✅ Own orders (view/create)
+- ✅ Products (view)
+- ✅ Own dispatches (view)
+- ❌ Payments (no access)
+- ❌ Reports (no access)
+- ❌ Other dealers (no access)
+- ❌ User management (no access)
+
+### Users - Admin
+
+- ✅ Full access to all APIs
+- ✅ Users, Products, Dealers, Orders, Dispatches, Payments, Reports
+
+### Users - Accountant
+
+- ✅ Payments (view/create)
+- ✅ Reports (view)
+- ✅ Orders (view)
+- ✅ Dealers (view)
+- ❌ Orders (create/update/delete)
+- ❌ Dispatches (no access)
+- ❌ Products (no access)
+
+### Users - Sales Officer
+
+- ✅ Orders (manage)
+- ✅ Dealers (manage)
+- ✅ Products (manage)
+- ✅ Dispatches (view)
+- ❌ Payments (no access)
+- ❌ Reports (no access)
+
+### Users - Dispatch Officer
+
+- ✅ Dispatches (manage)
+- ✅ Orders (view)
+- ❌ Payments (no access)
+- ❌ Reports (no access)
+- ❌ Dealers (no access)
+- ❌ Products (no access)
+
+---
+
+## Quick Reference
+
+### Endpoint Summary
 
 | Method | Endpoint | Auth | User Type | Role Required |
 |--------|----------|------|-----------|---------------|
-| **Authentication** |
 | POST | `/api/login` | No | All | - |
 | POST | `/api/logout` | Yes | All | - |
 | GET | `/api/me` | Yes | All | - |
-| **Dashboard** |
 | GET | `/api/dashboard` | Yes | All | - |
-| **Banners** |
-| GET | `/api/banners` | No | - | - |
-| GET | `/api/banners/{id}` | No | - | - |
-| **Banners** |
-| GET | `/api/banners` | No | - | - |
-| GET | `/api/banners/{id}` | No | - | - |
-| **Crops** |
-| GET | `/api/crops` | Yes | All | - |
-| GET | `/api/crops/{id}` | Yes | All | - |
-| GET | `/api/crops/{id}/products` | Yes | All | - |
-| **Products** |
+| GET | `/api/users/profile` | Yes | User | - |
+| PUT | `/api/users/profile` | Yes | User | - |
+| POST | `/api/dealers/register` | No | - | - |
+| GET | `/api/dealers/profile` | Yes | Dealer | - |
+| PUT | `/api/dealers/profile` | Yes | Dealer | - |
+| GET | `/api/dealers` | Yes | User | admin/sales/accountant |
+| GET | `/api/dealers/{id}` | Yes | User | admin/sales/accountant |
 | GET | `/api/products/categories` | Yes | All | - |
 | GET | `/api/products` | Yes | All | - |
 | GET | `/api/products/{id}` | Yes | All | - |
 | POST | `/api/products` | Yes | User | admin/sales |
 | PUT | `/api/products/{id}` | Yes | User | admin/sales |
 | DELETE | `/api/products/{id}` | Yes | User | admin |
-| **Orders** |
 | POST | `/api/orders` | Yes | Dealer | - |
 | GET | `/api/orders` | Yes | All | - |
-| GET | `/api/orders/{id}` | Yes | All | - |
-| PUT | `/api/orders/{id}` | Yes | User | admin/sales |
-| DELETE | `/api/orders/{id}` | Yes | User | admin |
-| **Cart** |
 | GET | `/api/cart` | Yes | Dealer | - |
 | POST | `/api/cart` | Yes | Dealer | - |
 | PUT | `/api/cart/{id}` | Yes | Dealer | - |
 | DELETE | `/api/cart/{id}` | Yes | Dealer | - |
 | DELETE | `/api/cart` | Yes | Dealer | - |
-| **Dealers** |
-| POST | `/api/dealers/register` | No | - | - |
-| GET | `/api/dealers/profile` | Yes | Dealer | - |
-| PUT | `/api/dealers/profile` | Yes | Dealer | - |
-| GET | `/api/dealers` | Yes | User | admin/sales/accountant |
-| GET | `/api/dealers/{id}` | Yes | User | admin/sales/accountant |
-| **Dispatches** |
+| GET | `/api/orders/{id}` | Yes | All | - |
+| PUT | `/api/orders/{id}` | Yes | User | admin/sales |
+| DELETE | `/api/orders/{id}` | Yes | User | admin |
 | POST | `/api/dispatches` | Yes | User | admin/dispatch |
 | GET | `/api/orders/{orderId}/dispatches` | Yes | All | - |
 | PUT | `/api/dispatches/{id}` | Yes | User | admin/dispatch |
-| **Payments** |
 | GET | `/api/payments` | Yes | User | admin/accountant |
 | GET | `/api/payments/{id}` | Yes | User | admin/accountant |
 | POST | `/api/payments` | Yes | User | admin/accountant |
-| **Reports** |
 | GET | `/api/reports/sales` | Yes | User | admin/accountant |
 | GET | `/api/reports/dealer-performance` | Yes | User | admin/sales |
-| **User Profile** |
-| GET | `/api/users/profile` | Yes | User | - |
-| PUT | `/api/users/profile` | Yes | User | - |
 
 ---
 
-## 🔑 Default Test Credentials
-
-**Note:** These are for development only. Change passwords in production.
-
-### Users (Password: `password`)
-- **Admin:** Mobile `9876543210`
-- **Accountant:** Mobile `9876543211`
-- **Sales Officer:** Mobile `9876543212`
-- **Dispatch Officer:** Mobile `9876543213`
-
-### Dealers (Password: `password`)
-- **Mumbai Agro Traders:** Mobile `9876543210`
-- **Pune Farm Supplies:** Mobile `9876543211`
-- **Ahmedabad Crop Care:** Mobile `9876543212`
-
----
-
-**Last Updated:** 2026-01-18
-
----
-
-## 📝 Recent Updates
-
-### 2026-01-18
-- ✅ **Banner Master**: Added banner management with public APIs for mobile app
-- ✅ **Category Master**: Added category master with image support
-- ✅ **Crop Master**: Added crop master with auto-generated unique IDs and product assignment
-- ✅ **Product Enhancements**:
-  - Added category assignment to products
-  - Added "contains_description" field
-  - Added "unit_per_case" field
-- ✅ **Simplified Login**: Only mobile and password required (auto-detects user type)
-- ✅ **Crop-Product Relationship**: Products can be assigned to crops for crop-wise product listing
-
-### 2026-01-17
-- ✅ Initial API documentation
+**Last Updated**: 2026-01-17

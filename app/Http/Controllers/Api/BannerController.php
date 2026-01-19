@@ -2,12 +2,11 @@
 
 namespace App\Http\Controllers\Api;
 
-use App\Http\Controllers\Controller;
 use App\Models\Banner;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
-class BannerController extends Controller
+class BannerController extends BaseApiController
 {
     /**
      * Get list of active banners.
@@ -40,9 +39,7 @@ class BannerController extends Controller
             return $banner;
         });
 
-        return response()->json([
-            'banners' => $banners,
-        ]);
+        return $this->successResponse($banners->toArray(), 'BANNERS RETRIEVED SUCCESSFULLY');
     }
 
     /**
@@ -59,8 +56,6 @@ class BannerController extends Controller
         // Add full image URL
         $banner->image_url = $banner->image ? asset('storage/' . $banner->image) : null;
 
-        return response()->json([
-            'banner' => $banner,
-        ]);
+        return $this->successResponse($banner->toArray(), 'BANNER RETRIEVED SUCCESSFULLY');
     }
 }

@@ -46,6 +46,8 @@ class Dealer extends Model
         'address',
         'zone_id',
         'state_id',
+        'district_id',
+        'taluka_id',
         'city_id',
         'pincode',
         'password',
@@ -65,6 +67,10 @@ class Dealer extends Model
         'credit_days',
         'bank_details',
         'notes',
+        'image_1',
+        'image_2',
+        'image_3',
+        'image_4',
     ];
 
     /**
@@ -115,6 +121,22 @@ class Dealer extends Model
     public function city(): BelongsTo
     {
         return $this->belongsTo(City::class);
+    }
+
+    /**
+     * Get the district that the dealer belongs to.
+     */
+    public function district(): BelongsTo
+    {
+        return $this->belongsTo(District::class, 'district_id', 'fld_dist_id');
+    }
+
+    /**
+     * Get the taluka that the dealer belongs to.
+     */
+    public function taluka(): BelongsTo
+    {
+        return $this->belongsTo(Taluka::class, 'taluka_id', 'fld_taluka_id');
     }
 
     /**

@@ -12,7 +12,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 
-class DispatchController extends Controller
+class DispatchController extends BaseApiController
 {
     /**
      * Create a dispatch for an order (admin/dispatch_officer only).

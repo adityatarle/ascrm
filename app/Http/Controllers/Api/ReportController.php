@@ -10,7 +10,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
-class ReportController extends Controller
+class ReportController extends BaseApiController
 {
     /**
      * Get sales report (admin/accountant only).
