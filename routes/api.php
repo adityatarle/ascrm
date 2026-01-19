@@ -40,6 +40,24 @@ Route::prefix('v1')->group(function () {
         Route::get('/{id}', [BannerController::class, 'show']); // Get specific banner
     });
 
+    // State, District, Taluka routes (Public - for cascading dropdowns)
+    Route::prefix('states')->group(function () {
+        Route::get('/', [StateController::class, 'index']); // Get all states
+        Route::get('/{id}', [StateController::class, 'show']); // Get specific state
+        Route::get('/{id}/districts', [DistrictController::class, 'index']); // Get districts by state
+    });
+
+    Route::prefix('districts')->group(function () {
+        Route::get('/', [DistrictController::class, 'index']); // Get all districts (filter by state_id)
+        Route::get('/{id}', [DistrictController::class, 'show']); // Get specific district
+        Route::get('/{id}/talukas', [TalukaController::class, 'index']); // Get talukas by district
+    });
+
+    Route::prefix('talukas')->group(function () {
+        Route::get('/', [TalukaController::class, 'index']); // Get all talukas (filter by district_id or state_id)
+        Route::get('/{id}', [TalukaController::class, 'show']); // Get specific taluka
+    });
+
     // Protected routes (require Sanctum authentication)
     Route::middleware('auth:sanctum')->group(function () {
     // Auth routes
@@ -68,24 +86,6 @@ Route::prefix('v1')->group(function () {
         Route::get('/', [CropController::class, 'index']); // All authenticated users - Get all crops with products
         Route::get('/{id}', [CropController::class, 'show']); // All authenticated users - Get specific crop with products
         Route::get('/{id}/products', [CropController::class, 'products']); // All authenticated users - Get products for a crop
-    });
-
-    // State, District, Taluka routes (Public - for cascading dropdowns)
-    Route::prefix('states')->group(function () {
-        Route::get('/', [StateController::class, 'index']); // Get all states
-        Route::get('/{id}', [StateController::class, 'show']); // Get specific state
-        Route::get('/{id}/districts', [DistrictController::class, 'index']); // Get districts by state
-    });
-
-    Route::prefix('districts')->group(function () {
-        Route::get('/', [DistrictController::class, 'index']); // Get all districts (filter by state_id)
-        Route::get('/{id}', [DistrictController::class, 'show']); // Get specific district
-        Route::get('/{id}/talukas', [TalukaController::class, 'index']); // Get talukas by district
-    });
-
-    Route::prefix('talukas')->group(function () {
-        Route::get('/', [TalukaController::class, 'index']); // Get all talukas (filter by district_id or state_id)
-        Route::get('/{id}', [TalukaController::class, 'show']); // Get specific taluka
     });
 
     // Product routes
