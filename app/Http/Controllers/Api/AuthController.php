@@ -52,16 +52,15 @@ class AuthController extends BaseApiController
         $token = $user->createToken('mobile-app')->plainTextToken;
         $roles = $user->getRoleNames();
 
-        // Get user data without organization relationship to avoid duplication
-        $user->load('organization');
-        $userData = $user->makeHidden(['organization'])->toArray();
-        // Remove organization_id from user data as we'll include organization separately
-        unset($userData['organization_id']);
+        // Get user data without relationships
+        $userData = $user->makeHidden(['organization', 'organization_id', 'password'])->toArray();
+        
+        // Remove roles from user data as we'll include it separately
+        unset($userData['roles']);
 
         $data = [
             'user_type' => 'user',
             'user' => $userData,
-            'organization' => $user->organization,
             'roles' => $roles,
             'token' => $token,
         ];
@@ -95,12 +94,12 @@ class AuthController extends BaseApiController
 
         $token = $dealer->createToken('mobile-app')->plainTextToken;
 
-        $dealerData = $dealer->load(['state', 'city', 'zone'])->toArray();
+        // Get dealer data without relationships
+        $dealerData = $dealer->makeHidden(['password'])->toArray();
 
         $data = [
             'user_type' => 'dealer',
             'dealer' => $dealerData,
-            'organization' => $organization,
             'roles' => ['dealer'],
             'token' => $token,
         ];
@@ -174,18 +173,16 @@ class AuthController extends BaseApiController
 
         // Check if it's a User or Dealer
         if ($user instanceof User) {
-            $user->load('organization');
-            $userData = $user->makeHidden(['organization'])->toArray();
-            unset($userData['organization_id']);
+            $userData = $user->makeHidden(['organization', 'organization_id', 'password'])->toArray();
+            unset($userData['roles']); // Remove nested roles
             
             $data = [
                 'user_type' => 'user',
                 'user' => $userData,
-                'organization' => $user->organization,
                 'roles' => $user->getRoleNames(),
             ];
         } else {
-            $dealerData = $user->load(['state', 'city', 'zone'])->toArray();
+            $dealerData = $user->makeHidden(['password'])->toArray();
             
             $data = [
                 'user_type' => 'dealer',
